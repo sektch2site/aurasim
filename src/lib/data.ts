@@ -1,0 +1,210 @@
+import { cacheLife, cacheTag } from "next/cache";
+import { digitsToLike, matchLike, matchMask, maskToPgRegex } from "./mask";
+import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
+import { findRule, priceSortValue, resolvePrice } from "./pricing";
+import { hasSupabase } from "./supabase/env";
+import { publicClient } from "./supabase/public";
+import {
+  DEFAULT_SETTINGS,
+  type Bundle,
+  type CatalogItem,
+  type CatalogQuery,
+  type CatalogResult,
+  type PhoneNumber,
+  type PriceRule,
+  type Settings,
+  type Tariff,
+} from "./types";
+
+export const CATALOG_TAG = "catalog";
+
+/* ---------- справочники ---------- */
+
+export async function getSettings(): Promise<Settings> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  if (!hasSupabase) return DEFAULT_SETTINGS;
+  const { data } = await publicClient().from("settings").select("data").eq("id", 1).maybeSingle();
+  return { ...DEFAULT_SETTINGS, ...((data?.data as Partial<Settings>) ?? {}) };
+}
+
+export async function getRules(): Promise<PriceRule[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  if (!hasSupabase) return MOCK_RULES;
+  const { data } = await publicClient().from("price_rules").select("*");
+  return (data as PriceRule[]) ?? [];
+}
+
+export async function getTariffs(): Promise<Tariff[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  if (!hasSupabase) return MOCK_TARIFFS;
+  const { data } = await publicClient().from("tariffs").select("*").order("position");
+  return (data as Tariff[]) ?? [];
+}
+
+/* ---------- обогащение ценой ---------- */
+
+function enrich(n: PhoneNumber, rules: PriceRule[], settings: Settings): CatalogItem {
+  const rule = findRule(n, rules);
+  return { ...n, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
+}
+
+async function byIds(ids: string[]): Promise<PhoneNumber[]> {
+  if (!ids.length) return [];
+  if (!hasSupabase) {
+    const all = new Map(mockNumbers().map((n) => [n.id, n]));
+    return ids.map((id) => all.get(id)).filter(Boolean) as PhoneNumber[];
+  }
+  const { data } = await publicClient().from("numbers").select("*").in("id", ids);
+  const map = new Map(((data as PhoneNumber[]) ?? []).map((n) => [n.id, n]));
+  return ids.map((id) => map.get(id)).filter(Boolean) as PhoneNumber[];
+}
+
+/* ---------- подборки ---------- */
+
+/** Ручная подборка из админки */
+export async function getFeatured(): Promise<CatalogItem[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  const [rules, settings] = await Promise.all([getRules(), getSettings()]);
+  let ids: string[];
+  if (!hasSupabase) ids = MOCK_FEATURED;
+  else {
+    const { data } = await publicClient().from("featured").select("number_id").order("position");
+    ids = ((data as { number_id: string }[]) ?? []).map((r) => r.number_id);
+  }
+  const nums = await byIds(ids);
+  return nums.filter((n) => n.is_active).map((n) => enrich(n, rules, settings));
+}
+
+/** Автоподборка: самые красивые активные номера, кроме ручной подборки */
+export async function getAutoPicks(limit = 24): Promise<CatalogItem[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  const [rules, settings, featured] = await Promise.all([getRules(), getSettings(), getFeatured()]);
+  const skip = new Set(featured.map((f) => f.id));
+  let list: PhoneNumber[];
+  if (!hasSupabase) {
+    list = [...mockNumbers()].sort((a, b) => b.beauty_score - a.beauty_score);
+  } else {
+    const { data } = await publicClient()
+      .from("numbers")
+      .select("*")
+      .eq("is_active", true)
+      .order("beauty_score", { ascending: false })
+      .limit(limit + skip.size + 20);
+    list = (data as PhoneNumber[]) ?? [];
+  }
+  // разнообразие: не больше 3 номеров с одинаковыми последними 4 цифрами-паттерном
+  const seenTail = new Map<string, number>();
+  const out: CatalogItem[] = [];
+  for (const n of list) {
+    if (skip.has(n.id) || !n.is_active) continue;
+    const key = n.tags.slice(0, 2).join("|") + n.id.slice(-3);
+    const c = seenTail.get(key) ?? 0;
+    if (c >= 2) continue;
+    seenTail.set(key, c + 1);
+    out.push(enrich(n, rules, settings));
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+export interface BundleView extends Bundle {
+  items: CatalogItem[];
+}
+
+export async function getBundles(): Promise<BundleView[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  const [rules, settings] = await Promise.all([getRules(), getSettings()]);
+  let bundles: Bundle[];
+  if (!hasSupabase) bundles = MOCK_BUNDLES;
+  else {
+    const { data } = await publicClient().from("bundles").select("*").eq("is_active", true).order("position");
+    bundles = (data as Bundle[]) ?? [];
+  }
+  const all = await byIds([...new Set(bundles.flatMap((b) => b.numbers))]);
+  const map = new Map(all.map((n) => [n.id, n]));
+  return bundles
+    .filter((b) => b.is_active)
+    .map((b) => ({
+      ...b,
+      items: b.numbers.map((id) => map.get(id)).filter(Boolean).map((n) => enrich(n!, rules, settings)),
+    }))
+    .filter((b) => b.items.length >= 2);
+}
+
+/* ---------- поиск ---------- */
+
+export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
+  const [rules, settings] = await Promise.all([getRules(), getSettings()]);
+  const page = Math.max(1, q.page ?? 1);
+  const pageSize = Math.min(100, q.pageSize ?? 40);
+  const like = digitsToLike(q.code, q.digits);
+  const free = q.q?.replace(/\D/g, "") || undefined;
+
+  if (!hasSupabase) {
+    let list = mockNumbers().filter((n) => n.is_active);
+    if (like) list = list.filter((n) => matchLike(n.id, like));
+    if (q.mask) list = list.filter((n) => matchMask(n.id, q.mask!));
+    if (free) list = list.filter((n) => n.id.includes(free.slice(-10)));
+    if (q.operators?.length) list = list.filter((n) => q.operators!.includes(n.operator));
+    if (q.tariffMin != null) list = list.filter((n) => (n.tariff_price ?? -1) >= q.tariffMin!);
+    if (q.tariffMax != null) list = list.filter((n) => n.tariff_price != null && n.tariff_price <= q.tariffMax!);
+    if (q.region) list = list.filter((n) => n.region === q.region);
+    let items = list.map((n) => enrich(n, rules, settings));
+    if (q.withPrice) items = items.filter((i) => i.price.kind === "fixed");
+    if (q.sort === "price_asc") items.sort((a, b) => priceSortValue(a.price) - priceSortValue(b.price));
+    else if (q.sort === "price_desc")
+      items.sort((a, b) => (b.price.kind === "request" ? -1 : priceSortValue(b.price)) - (a.price.kind === "request" ? -1 : priceSortValue(a.price)));
+    else items.sort((a, b) => b.beauty_score - a.beauty_score || a.id.localeCompare(b.id));
+    return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+  }
+
+  const { data, error } = await publicClient().rpc("search_numbers", {
+    p_like: like,
+    p_regex: q.mask ? maskToPgRegex(q.mask) : null,
+    p_q: free ?? null,
+    p_operators: q.operators?.length ? q.operators : null,
+    p_tariff_min: q.tariffMin ?? null,
+    p_tariff_max: q.tariffMax ?? null,
+    p_region: q.region ?? null,
+    p_with_price: Boolean(q.withPrice),
+    p_sort: q.sort ?? "beauty",
+    p_limit: pageSize,
+    p_offset: (page - 1) * pageSize,
+  });
+  if (error) throw new Error(error.message);
+  const rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+  let items = rows.map((r) => enrich(r.row_data, rules, settings));
+  // разные буквы маски = разные цифры (в SQL не проверяется)
+  if (q.mask) items = items.filter((i) => matchMask(i.id, q.mask!));
+  return { items, total: Number(rows[0]?.total ?? 0), page, pageSize };
+}
+
+export async function getRegions(): Promise<string[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(CATALOG_TAG);
+  if (!hasSupabase) return [...new Set(mockNumbers().map((n) => n.region).filter(Boolean) as string[])].sort();
+  const { data } = await publicClient().from("numbers").select("region").eq("is_active", true).limit(5000);
+  return [...new Set(((data as { region: string | null }[]) ?? []).map((r) => r.region).filter(Boolean) as string[])].sort();
+}
+
+export async function getStats(): Promise<{ total: number }> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  if (!hasSupabase) return { total: mockNumbers().length };
+  const { count } = await publicClient().from("numbers").select("id", { count: "estimated", head: true }).eq("is_active", true);
+  return { total: count ?? 0 };
+}
