@@ -10,7 +10,7 @@ export default function LoginPage(props: PageProps<"/admin/login">) {
     <div className="mx-auto mt-16 max-w-sm px-4">
       <div className="card-glow rounded-3xl p-7">
         <Logo />
-        <h1 className="font-display mt-6 mb-5 text-xl font-bold">Вход в админку</h1>
+        <h1 className="font-display mt-6 mb-5 text-xl font-extrabold">Вход в админку</h1>
         {!hasSupabase ? (
           <p className="text-sm text-ink-soft">База ещё не подключена — сайт работает на тестовых данных.</p>
         ) : (

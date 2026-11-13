@@ -1,4 +1,6 @@
+import Image from "next/image";
 import { SellButton, TariffButton } from "@/components/Actions";
+import { Features, TagIcon } from "@/components/Icons";
 import { BundleCard } from "@/components/BundleCard";
 import { Catalog } from "@/components/Catalog";
 import { NumberCard } from "@/components/NumberCard";
@@ -21,22 +23,45 @@ export default async function Home() {
     <>
       {/* HERO + поиск */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_15%_0%,#cfe2ff_0%,transparent_60%),radial-gradient(40%_50%_at_95%_10%,#d9f0ff_0%,transparent_70%)]" />
-        <div className="mx-auto max-w-6xl px-4 pt-8 pb-6 sm:pt-14">
-          <div className="mb-8 max-w-3xl">
-            <div className="mb-4 flex items-center gap-3 text-xs font-bold tracking-[0.22em] text-ink-soft uppercase">
-              <span className="h-px w-8 bg-ink-soft/50" /> {settings.hero_title}
+                <div className="mx-auto max-w-6xl px-4 pt-8 pb-6 sm:pt-14">
+          <div className="mb-8 grid items-center gap-8 md:grid-cols-[1.25fr_1fr]">
+            <div>
+              <div className="mb-5 flex items-center gap-3 text-[11px] font-extrabold tracking-[0.22em] text-ink uppercase sm:text-xs">
+                <span className="h-[2px] w-8 rounded bg-aura" /> {settings.hero_title} <span className="h-[2px] w-8 rounded bg-aura" />
+              </div>
+              <div className="relative inline-block py-6 pr-6">
+                <svg viewBox="0 0 600 200" className="pointer-events-none absolute inset-0 -left-[6%] h-full w-[112%]" aria-hidden>
+                  <defs>
+                    <linearGradient id="orbit" x1="0" x2="1">
+                      <stop offset="0" stopColor="#1a44e8" stopOpacity="0.9" />
+                      <stop offset="0.55" stopColor="#5fb4ff" stopOpacity="0.7" />
+                      <stop offset="1" stopColor="#1a44e8" stopOpacity="0.15" />
+                    </linearGradient>
+                  </defs>
+                  <ellipse cx="300" cy="104" rx="292" ry="78" fill="none" stroke="url(#orbit)" strokeWidth="5" transform="rotate(-6 300 104)" />
+                </svg>
+                <span className="absolute top-1 right-8 font-display text-base font-extrabold text-ink sm:text-xl">номера РФ</span>
+                <h1 className="brand-word relative text-[clamp(3rem,9vw,6.2rem)] leading-none text-ink">AURA SIM</h1>
+              </div>
+              <p className="mt-4 max-w-lg text-base font-medium text-ink-soft sm:text-lg">{settings.hero_subtitle}</p>
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <div className="card-glow rounded-2xl px-4 py-3">
+                  <Features />
+                </div>
+                <div className="card-glow flex items-center gap-2 rounded-2xl px-4 py-3 text-sm leading-tight font-extrabold">
+                  <TagIcon className="h-8 w-8 text-aura" />
+                  <span className="feature-bar h-9" />
+                  <span>
+                    Красивый номер
+                    <br />
+                    по <span className="text-aura">выгодной</span> цене!
+                  </span>
+                </div>
+              </div>
             </div>
-            <h1 className="font-display text-[clamp(2rem,5.4vw,3.9rem)] leading-[1.02] font-extrabold tracking-tight">
-              Номер, который <span className="text-aura">запоминают</span> с первого раза
-            </h1>
-            <p className="mt-4 max-w-xl text-base text-ink-soft sm:text-lg">{settings.hero_subtitle}</p>
-            <div className="mt-5 flex flex-wrap gap-2 text-sm font-semibold">
-              {["👥 Личная встреча", "💻 Дистанционное оформление", "🏷️ Скидка за быструю сделку"].map((t) => (
-                <span key={t} className="rounded-full border border-line bg-white/80 px-3.5 py-1.5">
-                  {t}
-                </span>
-              ))}
+            <div className="relative hidden md:block">
+              <div className="absolute -inset-6 -z-10 rounded-[48px] bg-[radial-gradient(closest-side,rgba(90,170,255,0.45),transparent)]" />
+              <Image src="/brand.jpg" alt="Aura sim — номера РФ" width={640} height={640} priority className="aspect-square w-full rounded-[36px] object-cover shadow-2xl shadow-aura/30 ring-4 ring-white" />
             </div>
           </div>
 
@@ -92,7 +117,7 @@ export default async function Home() {
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-soft">
                   <OperatorDot op={t.operator} /> {operatorName(t.operator)}
                 </div>
-                <h3 className="font-display text-xl font-bold">{t.name}</h3>
+                <h3 className="font-display text-xl font-extrabold">{t.name}</h3>
                 {t.description && <p className="mt-2 text-sm text-ink-soft">{t.description}</p>}
                 <div className="num mt-4 text-3xl text-aura">
                   {formatRub(t.price)}
@@ -113,7 +138,7 @@ export default async function Home() {
           <div className="relative grid gap-8 md:grid-cols-[1.4fr_1fr] md:items-center">
             <div>
               <div className="mb-3 text-xs font-bold tracking-[0.22em] text-sky uppercase">Выкуп номеров</div>
-              <h2 className="font-display text-3xl leading-tight font-bold sm:text-4xl">Есть красивый номер? Купим его у вас</h2>
+              <h2 className="font-display text-3xl leading-tight font-extrabold sm:text-4xl">Есть красивый номер? Купим его у вас</h2>
               <p className="mt-4 max-w-lg text-white/70">
                 Оценим за пару минут и предложим честную цену. Переоформление — при личной встрече или дистанционно.
               </p>
@@ -137,7 +162,7 @@ export default async function Home() {
             ["Оформление", "Встретимся лично или оформим дистанционно. Номер ваш."],
           ].map(([t, d], i) => (
             <li key={t} className="card-glow rounded-3xl p-5">
-              <div className="font-display mb-3 grid h-10 w-10 place-items-center rounded-full bg-aura-soft text-lg font-bold text-aura">{i + 1}</div>
+              <div className="font-display mb-3 grid h-10 w-10 place-items-center rounded-full bg-aura-soft text-lg font-extrabold text-aura">{i + 1}</div>
               <h3 className="font-bold">{t}</h3>
               <p className="mt-1 text-sm text-ink-soft">{d}</p>
             </li>
@@ -152,7 +177,7 @@ function SectionTitle({ kicker, title, note }: { kicker: string; title: string; 
   return (
     <div className="mb-5">
       <div className="mb-1.5 text-xs font-bold tracking-[0.2em] text-aura uppercase">{kicker}</div>
-      <h2 className="font-display text-2xl font-bold sm:text-3xl">{title}</h2>
+      <h2 className="font-display text-2xl font-extrabold sm:text-3xl">{title}</h2>
       {note && <p className="mt-1.5 text-sm text-ink-soft">{note}</p>}
     </div>
   );

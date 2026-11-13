@@ -75,7 +75,7 @@ export function BuyProvider({ settings, children }: { settings: Settings; childr
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
-              <h3 className="font-display text-xl font-bold">{title}</h3>
+              <h3 className="font-display text-xl font-extrabold">{title}</h3>
               <button onClick={() => setIntent(null)} className="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink-soft hover:bg-aura-soft" aria-label="Закрыть">
                 ✕
               </button>

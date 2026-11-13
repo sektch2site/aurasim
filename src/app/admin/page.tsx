@@ -39,7 +39,7 @@ async function Admin({ searchParams }: { searchParams: SP }) {
   if (!hasSupabase)
     return (
       <div className="card-glow rounded-3xl p-8">
-        <h1 className="font-display text-2xl font-bold">Админка</h1>
+        <h1 className="font-display text-2xl font-extrabold">Админка</h1>
         <p className="mt-3 text-ink-soft">
           База Supabase ещё не подключена — сайт показывает тестовые данные. Добавьте переменные окружения NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY и SUPABASE_SERVICE_ROLE_KEY.
         </p>
@@ -55,7 +55,7 @@ async function Admin({ searchParams }: { searchParams: SP }) {
   return (
     <>
       <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="font-display text-2xl font-bold">Админка</h1>
+        <h1 className="font-display text-2xl font-extrabold">Админка</h1>
         <div className="flex items-center gap-3 text-sm text-ink-soft">
           {admin.email}
           <form action={A.signOut}>
@@ -96,7 +96,7 @@ const ghost = "rounded-lg border border-line px-2.5 py-1 text-xs font-semibold h
 function Card({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section className="card-glow mb-5 rounded-3xl p-5 sm:p-6">
-      <h2 className="font-display text-lg font-bold">{title}</h2>
+      <h2 className="font-display text-lg font-extrabold">{title}</h2>
       {note && <p className="mt-1 mb-4 text-sm text-ink-soft">{note}</p>}
       <div className={note ? "" : "mt-4"}>{children}</div>
     </section>

@@ -1,17 +1,18 @@
 @import "tailwindcss";
 @import "@fontsource-variable/manrope";
-@import "@fontsource-variable/unbounded";
+@import "@fontsource-variable/montserrat";
+@import "@fontsource-variable/montserrat/wght-italic.css";
 
 @theme {
   --font-sans: "Manrope Variable", system-ui, sans-serif;
-  --font-display: "Unbounded Variable", "Manrope Variable", sans-serif;
+  --font-display: "Montserrat Variable", "Manrope Variable", sans-serif;
 
   --color-ink: #0b1633;
   --color-ink-soft: #4a5675;
   --color-mute: #8a94ad;
   --color-line: #dbe4f6;
-  --color-paper: #f4f7fd;
-  --color-aura: #1c4bf0;
+  --color-paper: #eef4ff;
+  --color-aura: #1a44e8;
   --color-aura-deep: #1236b8;
   --color-aura-soft: #e7eeff;
   --color-sky: #6fc3ff;
@@ -25,33 +26,52 @@ html {
 }
 
 body {
-  background: var(--color-paper);
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(120, 190, 255, 0.45), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(160, 205, 255, 0.35), transparent 60%),
+    linear-gradient(180deg, #f2f7ff 0%, #eaf2ff 100%);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
 .num {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
-/* Фирменная «аура»: голубые диагональные полосы, как на карточках канала */
+/* Фирменные «ледяные» блики в углах, как на постах канала */
 .aura-stripes {
   position: relative;
   overflow: hidden;
 }
-.aura-stripes::before {
+.aura-stripes::before,
+.aura-stripes::after {
   content: "";
   position: absolute;
-  inset: -40% auto auto -20%;
-  width: 70%;
-  height: 160%;
-  background: linear-gradient(115deg, transparent 0 28%, rgba(111, 195, 255, 0.55) 28% 34%, transparent 34% 40%, rgba(28, 75, 240, 0.35) 40% 43%, transparent 43%);
-  transform: rotate(0deg);
   pointer-events: none;
+  filter: blur(2px);
+}
+.aura-stripes::before {
+  left: -18%;
+  top: -30%;
+  width: 55%;
+  height: 70%;
+  background: linear-gradient(135deg, rgba(0, 140, 255, 0.55), rgba(120, 200, 255, 0.15) 45%, transparent 70%);
+  transform: rotate(-28deg);
+  border-radius: 40%;
+}
+.aura-stripes::after {
+  right: -20%;
+  bottom: -35%;
+  width: 60%;
+  height: 70%;
+  background: linear-gradient(315deg, rgba(0, 120, 255, 0.35), rgba(140, 210, 255, 0.12) 50%, transparent 70%);
+  transform: rotate(-28deg);
+  border-radius: 40%;
 }
 
 .card-glow {
@@ -61,13 +81,25 @@ body {
 }
 
 .pill-number {
-  border: 2px solid var(--color-aura);
-  box-shadow: 0 0 0 4px rgba(28, 75, 240, 0.08), 0 10px 24px -14px rgba(28, 75, 240, 0.7);
+  border: 2.5px solid var(--color-aura);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9), 0 0 22px 2px rgba(26, 68, 232, 0.28);
   background: #fff;
 }
 
 .price-chip {
-  background: linear-gradient(90deg, var(--color-money-soft), #f3fcf5 70%, #fff);
+  background: linear-gradient(90deg, #eef3ff 0%, #f4f8ff 45%, #e2f8e7 80%, #b9f0c5 100%);
+  box-shadow: 0 0 0 1px rgba(26, 68, 232, 0.06) inset, 6px 4px 18px -8px rgba(23, 200, 70, 0.55);
+}
+.feature-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-aura);
+}
+.brand-word {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
 }
 
 .no-scrollbar::-webkit-scrollbar {

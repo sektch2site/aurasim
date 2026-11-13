@@ -119,7 +119,7 @@ export function Catalog({ regions, total, children }: { regions: string[]; total
         className="card-glow scroll-mt-24 rounded-[28px] p-4 sm:p-6"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold sm:text-xl">Поиск номеров</h2>
+          <h2 className="font-display text-lg font-extrabold sm:text-xl">Поиск номеров</h2>
           <button type="button" onClick={clear} className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-paper">
             Очистить ✕
           </button>

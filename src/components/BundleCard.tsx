@@ -12,7 +12,7 @@ export function BundleCard({ b }: { b: BundleView }) {
     <article className="card-glow aura-stripes flex flex-col rounded-3xl p-5">
       <div className="relative mb-4 text-center">
         <div className="text-[11px] font-bold tracking-[0.2em] text-ink-soft uppercase">{b.kind === "trio" ? "Тройка номеров" : "Пара номеров"}</div>
-        <div className="font-display mt-1 inline-block rounded-full bg-gradient-to-r from-aura to-[#3d7bff] px-4 py-1.5 text-sm font-bold text-white shadow-md shadow-aura/30">
+        <div className="font-display mt-1 inline-block rounded-full bg-gradient-to-r from-aura to-[#3d7bff] px-4 py-1.5 text-sm font-extrabold text-white shadow-md shadow-aura/30">
           {b.title ?? (b.kind === "trio" ? "Интересная тройка" : "Красивая пара")}
         </div>
       </div>

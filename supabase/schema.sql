@@ -140,3 +140,10 @@ exception when duplicate_object then null; end $$;
 insert into public.price_rules (operator, tariff_max, price_from, price_to, tariff_note)
 select 'mts', 950, 9000, 15000, 'тариф до 950 ₽/мес'
 where not exists (select 1 from public.price_rules);
+
+-- Доступы для Data API (на новых проектах таблицы не открываются автоматически)
+grant usage on schema public to anon, authenticated, service_role;
+grant select on all tables in schema public to anon, authenticated;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+grant execute on function public.search_numbers to anon, authenticated, service_role;
