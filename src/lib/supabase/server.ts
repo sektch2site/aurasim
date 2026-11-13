@@ -26,6 +26,7 @@ export async function getAdmin(): Promise<{ email: string } | null> {
   const { data } = await sb.auth.getUser();
   const email = data.user?.email?.toLowerCase();
   if (!email) return null;
-  if (ADMIN_EMAILS.length && !ADMIN_EMAILS.includes(email)) return null;
+  // без списка ADMIN_EMAILS в админку не пускаем никого
+  if (!ADMIN_EMAILS.includes(email)) return null;
   return { email };
 }
