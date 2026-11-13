@@ -6,7 +6,6 @@ import { analyzeBeauty } from "@/lib/beauty";
 import { CATALOG_TAG } from "@/lib/data";
 import { serviceClient } from "@/lib/supabase/admin";
 import { getAdmin, sessionClient } from "@/lib/supabase/server";
-import { runSync } from "@/lib/sync";
 import type { Operator, Settings } from "@/lib/types";
 
 async function guard() {
@@ -230,11 +229,18 @@ export async function saveSettings(form: FormData) {
   done("settings", "Настройки сохранены");
 }
 
-/* ---------- синхронизация ---------- */
+/* ---------- партнёрка ---------- */
 
-export async function syncNow() {
-  await guard();
-  const r = await runSync();
-  if (r.error) fail("sync", r.error);
-  done("sync", `Готово: +${r.added}, обновлено ${r.updated}, снято ${r.removed}`);
+export async function savePartnerCookie(form: FormData) {
+  const db = await guard();
+  let cookie = str(form, "cookie");
+  // принимаем и «PHPSESSID=abc», и просто значение, и целую строку Cookie
+  const m = cookie.match(/PHPSESSID=([^;\s]+)/);
+  if (m) cookie = m[1];
+  if (!/^[A-Za-z0-9,-]{10,}$/.test(cookie)) fail("sync", "Похоже, это не PHPSESSID — скопируйте значение cookie целиком");
+  const { error } = await db
+    .from("partner_session")
+    .upsert({ id: 1, cookie, status: "pending", message: "Cookie обновлён — проверка пройдёт в ближайшие 2 часа или при синхронизации", updated_at: new Date().toISOString() });
+  if (error) fail("sync", error.message);
+  done("sync", "Cookie сохранён");
 }

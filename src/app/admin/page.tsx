@@ -7,7 +7,6 @@ import { formatRub } from "@/lib/pricing";
 import { serviceClient } from "@/lib/supabase/admin";
 import { hasSupabase } from "@/lib/supabase/env";
 import { getAdmin } from "@/lib/supabase/server";
-import { sourceConfigured } from "@/lib/source/agentstvo";
 import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type PhoneNumber, type PriceRule, type Settings, type Tariff } from "@/lib/types";
 import * as A from "./actions";
 
@@ -20,7 +19,7 @@ const TABS = [
   ["rules", "Правила цен"],
   ["tariffs", "Тарифы"],
   ["settings", "Настройки"],
-  ["sync", "Синхронизация"],
+  ["sync", "Партнёрка"],
 ] as const;
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
@@ -353,36 +352,65 @@ async function SettingsTab() {
   );
 }
 
-/* ---------- Синхронизация ---------- */
+/* ---------- Партнёрка ---------- */
+
+const STATUS: Record<string, [string, string]> = {
+  ok: ["Сессия активна", "bg-money-soft text-money"],
+  pending: ["Ждёт проверки", "bg-aura-soft text-aura-deep"],
+  expired: ["Сессия истекла — нужен новый вход", "bg-fire/10 text-fire"],
+  error: ["Ошибка", "bg-fire/10 text-fire"],
+  empty: ["Не подключено", "bg-paper text-ink-soft"],
+};
 
 async function Sync() {
   const db = serviceClient();
-  const [{ data: runs }, { count: active }, { count: all }] = await Promise.all([
+  const [{ data: runs }, { count: active }, { data: sess }] = await Promise.all([
     db.from("sync_runs").select("*").order("id", { ascending: false }).limit(10),
     db.from("numbers").select("id", { count: "exact", head: true }).eq("is_active", true),
-    db.from("numbers").select("id", { count: "exact", head: true }),
+    db.from("partner_session").select("status, message, checked_at, updated_at").eq("id", 1).maybeSingle(),
   ]);
+  const st = STATUS[sess?.status ?? "empty"] ?? STATUS.error;
+  const fmt = (d?: string | null) => (d ? new Date(d).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }) : "—");
   return (
     <>
-      <Card title="Синхронизация с партнёркой" note="Запускается автоматически раз в сутки. Новые номера появляются на сайте, проданные — скрываются.">
-        <div className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-          <div className="rounded-2xl bg-paper p-3">На сайте: <b className="num">{active ?? 0}</b></div>
-          <div className="rounded-2xl bg-paper p-3">Всего в базе: <b className="num">{all ?? 0}</b></div>
-          <div className="rounded-2xl bg-paper p-3">Источник: <b>{sourceConfigured() ? "настроен" : "не настроен"}</b></div>
+      <Card title="Партнёрка «Агентство Связи»" note="Раз в сутки сайт сам забирает красивые номера из кабинета партнёра: новые появляются, проданные исчезают. Каждые 2 часа проверяется, что вход не слетел.">
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+          <span className={`rounded-full px-3 py-1 font-bold ${st[1]}`}>{st[0]}</span>
+          <span className="text-ink-soft">проверено: {fmt(sess?.checked_at)}</span>
+          <span className="text-ink-soft">· номеров на сайте: <b className="num text-ink">{active ?? 0}</b></span>
         </div>
-        <form action={A.syncNow}>
-          <button className={btn} disabled={!sourceConfigured()}>Синхронизировать сейчас</button>
+        {sess?.message && <p className="mb-4 text-sm text-ink-soft">{sess.message}</p>}
+        <form action={A.savePartnerCookie} className="flex flex-col gap-3 sm:flex-row">
+          <input name="cookie" required placeholder="PHPSESSID из ac-partner.ru" autoComplete="off" className={`${input} flex-1 font-mono text-sm`} />
+          <button className={btn}>Сохранить вход</button>
         </form>
+        <details className="mt-4 text-sm text-ink-soft">
+          <summary className="cursor-pointer font-bold text-ink">Как обновить вход, если сессия истекла</summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>На компьютере в Chrome откройте ac-partner.ru и войдите по номеру и коду из SMS.</li>
+            <li>Нажмите F12 (или ⌥⌘I на Mac) → вкладка Application → Cookies → https://ac-partner.ru.</li>
+            <li>Скопируйте значение строки PHPSESSID и вставьте сюда.</li>
+            <li>Не выходите из кабинета кнопкой «Выйти» — иначе сессия сразу перестанет работать.</li>
+          </ol>
+        </details>
       </Card>
-      <Card title="Последние запуски">
+      <Card title="Последние синхронизации">
         <div className="divide-y divide-line text-sm">
-          {((runs ?? []) as { id: number; started_at: string; added: number; updated: number; removed: number; error: string | null }[]).map((r) => (
+          {((runs ?? []) as { id: number; started_at: string; finished_at: string | null; added: number; updated: number; removed: number; error: string | null }[]).map((r) => (
             <div key={r.id} className="flex flex-wrap gap-4 py-2">
-              <span className="text-mute">{new Date(r.started_at).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })}</span>
-              {r.error ? <span className="text-fire">{r.error}</span> : <span>+{r.added} · обновлено {r.updated} · снято {r.removed}</span>}
+              <span className="text-mute">{fmt(r.started_at)}</span>
+              {r.error ? (
+                <span className="text-fire">{r.error}</span>
+              ) : !r.finished_at ? (
+                <span className="text-aura">идёт…</span>
+              ) : (
+                <span>
+                  новых {r.added} · обновлено {r.updated} · снято {r.removed}
+                </span>
+              )}
             </div>
           ))}
-          {!runs?.length && <p className="py-2 text-ink-soft">Запусков ещё не было.</p>}
+          {!runs?.length && <p className="py-2 text-ink-soft">Синхронизаций ещё не было.</p>}
         </div>
       </Card>
     </>
