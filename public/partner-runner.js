@@ -59,14 +59,14 @@
       if (r.redirected && /login/.test(r.url)) throw new Expired("Нужен вход в кабинет партнёра");
       var ct = r.headers.get("content-type") || "";
       var text = await r.text();
-      if (!r.ok) throw new Error("Кабинет ответил " + r.status);
+      if (!r.ok) { var er = new Error("Кабинет ответил " + r.status); er.http = r.status; throw er; }
       try { return JSON.parse(text); } catch (e) {
         if (/form-login|Вход в кабинет/.test(text)) throw new Expired("Нужен вход в кабинет партнёра");
         throw new Error("Кабинет вернул не JSON (" + ct + ")");
       }
     } catch (e) {
-      if (e.expired || attempt >= 3) throw e;
-      await new Promise(function (res) { setTimeout(res, 1500 * attempt); });
+      if (e.expired || attempt >= 6) throw e;
+      await new Promise(function (res) { setTimeout(res, (e.http >= 500 ? 5000 : 1500) * attempt); });
       return partnerJson(url, init, attempt + 1);
     }
   }
@@ -91,6 +91,7 @@
     var seen = new Set();
     var buffer = [];
     var scanned = 0;
+    var skipped = 0;
     var sending = Promise.resolve();
     function push(list) {
       for (var k = 0; k < list.length; k++) {
@@ -134,7 +135,9 @@
         var offsets = [];
         for (var off = PAGE; off < total; off += PAGE) offsets.push(off);
         await pool(offsets, CONCURRENCY, async function (o) {
-          var r = await searchPage(mask, o);
+          var r;
+          try { r = await searchPage(mask, o); }
+          catch (e) { if (e.expired) throw e; skipped++; st.skipped = skipped; return; }
           var l = r.list || [];
           scanned += l.length;
           st.pages++;
@@ -145,7 +148,7 @@
       }
       await flush(true);
       await sending;
-      await api({ action: "finish", runId: st.runId, seen: seen.size, scanned: scanned });
+      await api({ action: "finish", runId: st.runId, seen: seen.size, scanned: scanned, partial: skipped > 0 });
       st.state = "done";
     } catch (e) {
       st.state = "error";

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
     | { action: "start" }
     | { action: "batch"; runId: number; items: PartnerItem[] }
-    | { action: "finish"; runId: number; seen: number; scanned?: number }
+    | { action: "finish"; runId: number; seen: number; scanned?: number; partial?: boolean }
     | { action: "status"; status: string; message?: string; runId?: number }
     | null;
   if (!body) return json({ error: "bad json" }, 400);
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     case "finish": {
       let removed = 0;
       // защита: если пришло подозрительно мало — ничего не снимаем
-      if (body.seen >= 1000) {
+      if (body.seen >= 1000 && !body.partial) {
         const { count } = await db
           .from("numbers")
           .update({ is_active: false }, { count: "exact" })
