@@ -29,9 +29,9 @@ export default async function Home() {
                     <div className="text-[10px] font-extrabold tracking-[0.2em] text-aura uppercase">Подборка Aura sim</div>
                     <h2 className="font-display text-lg font-extrabold sm:text-xl">Номера недели</h2>
                   </div>
-                  <span className="text-xs font-semibold text-ink-soft sm:hidden">листайте →</span>
+                  <span className="text-xs font-semibold text-ink-soft">листайте →</span>
                 </div>
-                <div className="no-scrollbar -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+                <div className="no-scrollbar -mx-3 grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/2.15)] grid-flow-col grid-rows-2 gap-2 overflow-x-auto px-3 pb-2 sm:mx-0 sm:auto-cols-[calc((100%-1.5rem)/3)] sm:gap-3 sm:px-0">
                   {featured.map((n, i) => (
                     <NumberCard key={n.id} n={n} delay={Math.min(i, 6) * 40} />
                   ))}

@@ -42,7 +42,7 @@ export function OperatorDot({ op, size = 22 }: { op: Operator; size?: number }) 
   const logo = OPERATOR_LOGOS[op];
   if (logo)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logo} alt={o.name} title={o.name} width={size} height={size} className="shrink-0 rounded-full bg-white object-cover ring-1 ring-black/10" style={{ width: size, height: size }} />;
+    return <img src={logo} alt={o.name} title={o.name} width={size} height={size} className={`shrink-0 bg-white object-cover ring-1 ring-black/10 ${op === "mts" ? "rounded-[22%]" : "rounded-full"}`} style={{ width: size, height: size }} />;
   const letter = { beeline: "Б", megafon: "М", mts: "МТС", yota: "Y", t2: "t2", other: "•" }[op];
   return (
     <span
