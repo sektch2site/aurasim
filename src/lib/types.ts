@@ -93,7 +93,12 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /** Логотипы операторов (файлы в public/operators). Пока файла нет — показывается цветной кружок. */
-export const OPERATOR_LOGOS: Partial<Record<Operator, string>> = {};
+export const OPERATOR_LOGOS: Partial<Record<Operator, string>> = {
+  beeline: "/operators/beeline.png",
+  megafon: "/operators/megafon.png",
+  yota: "/operators/yota.png",
+  t2: "/operators/t2.png",
+};
 
 export type ResolvedPrice =
   | { kind: "fixed"; price: number; old: number | null }
