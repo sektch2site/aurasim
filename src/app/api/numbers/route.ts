@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     region: p.get("region") ?? undefined,
     withPrice: p.get("priced") === "1",
     discount: p.get("discount") === "1",
-    sort: (p.get("sort") as CatalogQuery["sort"]) ?? "beauty",
+    sort: (p.get("sort") as CatalogQuery["sort"]) ?? "mix",
     page: num("page") ?? 1,
     pageSize: num("size") ?? 40,
     ids: p.get("ids")?.split(",").filter(Boolean),

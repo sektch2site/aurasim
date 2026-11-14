@@ -19,10 +19,10 @@ interface Filters {
   mask: string;
   priced: boolean;
   discount: boolean;
-  sort: "beauty" | "price_asc" | "price_desc" | "new";
+  sort: "mix" | "beauty" | "price_asc" | "price_desc" | "new";
 }
 
-const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, discount: false, sort: "beauty" };
+const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, discount: false, sort: "mix" };
 
 /* вид списка: «list» или «grid», запоминается в браузере */
 type View = "list" | "grid";
@@ -71,7 +71,7 @@ function toParams(f: Filters, page: number) {
 }
 
 const isEmpty = (f: Filters) =>
-  !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && !f.discount && f.sort === "beauty";
+  !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && !f.discount && f.sort === "mix";
 
 /**
  * Поиск + список номеров. Пока фильтры пустые — показываем «Все номера» (начальная страница с сервера),
@@ -308,6 +308,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
             }}
             className="select-nice rounded-xl border border-line bg-white py-1.5 pl-3 text-sm font-semibold outline-none focus:border-aura"
           >
+            <option value="mix">Рекомендуем</option>
             <option value="beauty">Сначала красивые</option>
             <option value="new">Сначала новые</option>
             <option value="price_asc">Сначала дешевле</option>

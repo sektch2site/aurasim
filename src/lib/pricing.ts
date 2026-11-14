@@ -31,9 +31,23 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   }
   const rule = findRule(n, rules);
   if (rule && rule.price_from) {
-    return { kind: "range", from: rule.price_from, to: rule.price_to ?? rule.price_from };
+    return { kind: "fixed", price: priceInRange(n, rule.price_from, rule.price_to ?? rule.price_from), old: null };
   }
   return { kind: "request" };
+}
+
+/** Стабильное «случайное» число 0..1 по номеру (одинаковое при каждом показе) */
+function seed(id: string): number {
+  let h = 2166136261;
+  for (const ch of id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return ((h >>> 0) % 10007) / 10007;
+}
+
+/** Конкретная цена внутри диапазона правила: чем красивее номер — тем ближе к верху. Шаг 1000 ₽. */
+export function priceInRange(n: Pick<PhoneNumber, "id" | "beauty_score">, from: number, to: number): number {
+  if (to <= from) return from;
+  const t = Math.min(1, Math.max(0, 0.6 * (n.beauty_score / 100) + 0.4 * seed(n.id)));
+  return Math.round((from + (to - from) * t) / 1000) * 1000;
 }
 
 export function priceSortValue(p: ResolvedPrice): number {

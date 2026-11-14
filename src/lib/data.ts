@@ -169,14 +169,25 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     let items = list.map((n) => enrich(n, rules, settings));
     if (q.withPrice) items = items.filter((i) => i.price.kind === "fixed");
     if (q.discount) items = items.filter((i) => i.price.kind === "fixed" && (i.price.old ?? 0) > i.price.price);
-    if (q.sort === "price_asc") items.sort((a, b) => priceSortValue(a.price) - priceSortValue(b.price));
-    else if (q.sort === "price_desc")
+    const sort = q.sort ?? "mix";
+    if (sort === "price_asc") items.sort((a, b) => priceSortValue(a.price) - priceSortValue(b.price));
+    else if (sort === "price_desc")
       items.sort((a, b) => (b.price.kind === "request" ? -1 : priceSortValue(b.price)) - (a.price.kind === "request" ? -1 : priceSortValue(a.price)));
     else items.sort((a, b) => b.beauty_score - a.beauty_score || a.id.localeCompare(b.id));
+    if (sort === "mix") {
+      const ruleOps = new Set(rules.filter((r) => r.price_from).map((r) => r.operator));
+      const dbPrice = (i: PhoneNumber) => i.price_override ?? i.partner_price;
+      const cheap = items.filter((i) => (dbPrice(i) ?? Infinity) <= MIX_SPLIT || (dbPrice(i) == null && ruleOps.has(i.operator)));
+      const premium = items.filter((i) => (dbPrice(i) ?? 0) > MIX_SPLIT);
+      const request = items.filter((i) => dbPrice(i) == null && !ruleOps.has(i.operator));
+      const plan = planMix((page - 1) * pageSize, pageSize, cheap.length, premium.length, request.length);
+      const src = { A: cheap, B: premium, C: request };
+      return { items: plan.map(([bk, i]) => src[bk][i]), total: items.length, page, pageSize };
+    }
     return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
   }
 
-  const { data, error } = await publicClient().rpc("search_numbers", {
+  const base = {
     p_like: like,
     p_regex: q.mask && !POPULAR_MASKS.includes(normalizeMask(q.mask)) ? maskToPgRegex(q.mask) : null,
     p_mask_tag: q.mask && POPULAR_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
@@ -186,17 +197,66 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     p_tariff_max: q.tariffMax ?? null,
     p_region: q.region ?? null,
     p_with_price: Boolean(q.withPrice),
-    p_sort: q.sort ?? "beauty",
     p_discount: Boolean(q.discount),
-    p_limit: pageSize,
-    p_offset: (page - 1) * pageSize,
-  });
-  if (error) throw new Error(error.message);
-  const rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
-  let items = rows.map((r) => enrich(r.row_data, rules, settings));
-  // разные буквы маски = разные цифры (в SQL не проверяется)
-  if (q.mask) items = items.filter((i) => matchMask(i.id, q.mask!));
-  return { items, total: Number(rows[0]?.total ?? 0), page, pageSize };
+    p_split: MIX_SPLIT,
+    p_rule_ops: [...new Set(rules.filter((r) => r.price_from).map((r) => r.operator))],
+  };
+  const slice = async (sort: string, bucket: "cheap" | "premium" | "request" | null, offset: number, limit: number) => {
+    if (limit <= 0) return { items: [] as CatalogItem[], total: -1 };
+    const { data, error } = await publicClient().rpc("search_numbers", { ...base, p_sort: sort, p_bucket: bucket, p_limit: limit, p_offset: offset });
+    if (error) throw new Error(error.message);
+    const rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+    let items = rows.map((r) => enrich(r.row_data, rules, settings));
+    // разные буквы маски = разные цифры (в SQL не проверяется)
+    if (q.mask) items = items.filter((i) => matchMask(i.id, q.mask!));
+    return { items, total: rows.length ? Number(rows[0].total) : -1 };
+  };
+
+  const sort = q.sort ?? "mix";
+  const offset = (page - 1) * pageSize;
+  if (sort !== "mix") {
+    const r = await slice(sort, null, offset, pageSize);
+    return { items: r.items, total: Math.max(0, r.total), page, pageSize };
+  }
+
+  // Смешанная выдача: сначала 5 недорогих (до 30 000 ₽), дальше по 2 недорогих и 2 дорогих,
+  // номера без цены и без правила цены — в конце
+  const buckets = ["cheap", "premium", "request"] as const;
+  const totals = await Promise.all(buckets.map(async (bk) => Math.max(0, (await slice("beauty", bk, 0, 1)).total)));
+  const plan = planMix(offset, pageSize, totals[0], totals[1], totals[2]);
+  const idx = (k: "A" | "B" | "C") => plan.filter((x) => x[0] === k).map((x) => x[1]);
+  const [ia, ib, ic] = [idx("A"), idx("B"), idx("C")];
+  const [ra, rb, rc] = await Promise.all([
+    ia.length ? slice("beauty", "cheap", ia[0], ia.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
+    ib.length ? slice("beauty", "premium", ib[0], ib.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
+    ic.length ? slice("beauty", "request", ic[0], ic.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
+  ]);
+  const ptr = { A: 0, B: 0, C: 0 };
+  const src = { A: ra.items, B: rb.items, C: rc.items };
+  const items: CatalogItem[] = [];
+  for (const [bk] of plan) {
+    const it = src[bk][ptr[bk]++];
+    if (it) items.push(it);
+  }
+  return { items, total: totals[0] + totals[1] + totals[2], page, pageSize };
+}
+
+const MIX_SPLIT = 30000;
+
+/** Раскладка смешанной выдачи: первые 5 — недорогие (A), дальше A,A,B,B…; без цены (C) — после них */
+function planMix(offset: number, size: number, totA: number, totB: number, totC = 0): ["A" | "B" | "C", number][] {
+  const out: ["A" | "B" | "C", number][] = [];
+  const used = { A: 0, B: 0, C: 0 };
+  const tot = { A: totA, B: totB, C: totC };
+  for (let i = 0; i < offset + size; i++) {
+    const want: "A" | "B" = i < 5 ? "A" : (i - 5) % 4 < 2 ? "A" : "B";
+    const order: ("A" | "B" | "C")[] = want === "A" ? ["A", "B", "C"] : ["B", "A", "C"];
+    const pick = order.find((k) => used[k] < tot[k]);
+    if (!pick) break;
+    if (i >= offset) out.push([pick, used[pick]]);
+    used[pick]++;
+  }
+  return out;
 }
 
 /** Первая страница «Все номера» на главной (кешируется) */
@@ -204,7 +264,7 @@ export async function getTopNumbers(pageSize = 30): Promise<CatalogResult> {
   "use cache";
   cacheLife("minutes");
   cacheTag(CATALOG_TAG);
-  return searchCatalog({ sort: "beauty", page: 1, pageSize });
+  return searchCatalog({ sort: "mix", page: 1, pageSize });
 }
 
 export async function getRegions(): Promise<string[]> {

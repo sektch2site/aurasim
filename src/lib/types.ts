@@ -117,7 +117,7 @@ export interface CatalogQuery {
   region?: string;
   withPrice?: boolean;
   discount?: boolean;
-  sort?: "beauty" | "price_asc" | "price_desc" | "new";
+  sort?: "mix" | "beauty" | "price_asc" | "price_desc" | "new";
   ids?: string[];
   page?: number;
   pageSize?: number;
