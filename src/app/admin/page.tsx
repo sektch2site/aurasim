@@ -318,9 +318,9 @@ async function SettingsTab() {
 /* ---------- Партнёрка ---------- */
 
 const STATUS: Record<string, [string, string]> = {
-  ok: ["Сессия активна", "bg-money-soft text-money"],
+  ok: ["Работает", "bg-money-soft text-money"],
   pending: ["Ждёт проверки", "bg-aura-soft text-aura-deep"],
-  expired: ["Сессия истекла — нужен новый вход", "bg-fire/10 text-fire"],
+  expired: ["Нужен вход в кабинет", "bg-fire/10 text-fire"],
   error: ["Ошибка", "bg-fire/10 text-fire"],
   empty: ["Не подключено", "bg-paper text-ink-soft"],
 };
@@ -336,26 +336,21 @@ async function Sync() {
   const fmt = (d?: string | null) => (d ? new Date(d).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }) : "—");
   return (
     <>
-      <Card title="Партнёрка «Агентство Связи»" note="Раз в сутки сайт сам забирает красивые номера из кабинета партнёра: новые появляются, проданные исчезают. Каждые 2 часа проверяется, что вход не слетел.">
-        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+      <Card
+        title="Партнёрка «Агентство Связи»"
+        note="Номера забираются из кабинета партнёра через браузер на компьютере, где выполнен вход: новые появляются, проданные и забронированные другими партнёрами пропадают, ваши брони остаются."
+      >
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
           <span className={`rounded-full px-3 py-1 font-bold ${st[1]}`}>{st[0]}</span>
-          <span className="text-ink-soft">проверено: {fmt(sess?.checked_at)}</span>
+          <span className="text-ink-soft">последняя проверка: {fmt(sess?.checked_at)}</span>
           <span className="text-ink-soft">· номеров на сайте: <b className="num text-ink">{active ?? 0}</b></span>
         </div>
-        {sess?.message && <p className="mb-4 text-sm text-ink-soft">{sess.message}</p>}
-        <form action={A.savePartnerCookie} className="flex flex-col gap-3 sm:flex-row">
-          <input name="cookie" required placeholder="PHPSESSID из ac-partner.ru" autoComplete="off" className={`${input} flex-1 font-mono text-sm`} />
-          <button className={btn}>Сохранить вход</button>
-        </form>
-        <details className="mt-4 text-sm text-ink-soft">
-          <summary className="cursor-pointer font-bold text-ink">Как обновить вход, если сессия истекла</summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>На компьютере в Chrome откройте ac-partner.ru и войдите по номеру и коду из SMS.</li>
-            <li>Нажмите F12 (или ⌥⌘I на Mac) → вкладка Application → Cookies → https://ac-partner.ru.</li>
-            <li>Скопируйте значение строки PHPSESSID и вставьте сюда.</li>
-            <li>Не выходите из кабинета кнопкой «Выйти» — иначе сессия сразу перестанет работать.</li>
-          </ol>
-        </details>
+        {sess?.message && <p className="text-sm text-ink-soft">{sess.message}</p>}
+        {sess?.status === "expired" && (
+          <p className="mt-3 rounded-2xl bg-fire/10 p-3 text-sm text-fire">
+            Вход в кабинет слетел. Откройте ac-partner.ru во встроенном браузере Claude на компьютере и войдите по коду из SMS — следующая синхронизация пройдёт сама.
+          </p>
+        )}
       </Card>
       <Card title="Последние синхронизации">
         <div className="divide-y divide-line text-sm">

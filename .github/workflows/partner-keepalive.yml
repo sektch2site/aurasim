@@ -1,8 +1,6 @@
-name: Проверка сессии партнёрки
+name: (вручную) Проверка сессии партнёрки
 
 on:
-  schedule:
-    - cron: "43 */2 * * *" # каждые 2 часа
   workflow_dispatch: {}
 
 concurrency:
