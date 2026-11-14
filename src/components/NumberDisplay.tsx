@@ -1,4 +1,4 @@
-import { OPERATORS, type Operator } from "@/lib/types";
+import { OPERATOR_LOGOS, OPERATORS, type Operator } from "@/lib/types";
 
 /** +7 961 044 40 04 — красивые цифры подсвечены синим */
 export function NumberDisplay({
@@ -39,6 +39,10 @@ export function NumberDisplay({
 
 export function OperatorDot({ op, size = 22 }: { op: Operator; size?: number }) {
   const o = OPERATORS.find((x) => x.id === op)!;
+  const logo = OPERATOR_LOGOS[op];
+  if (logo)
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logo} alt={o.name} title={o.name} width={size} height={size} className="shrink-0 rounded-full object-contain" style={{ width: size, height: size }} />;
   const letter = { beeline: "Б", megafon: "М", mts: "МТС", yota: "Y", t2: "t2", other: "•" }[op];
   return (
     <span

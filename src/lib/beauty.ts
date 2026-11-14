@@ -143,21 +143,21 @@ export function analyzeBeauty(raw: string): BeautyResult {
 
   let score = bonus;
   const mask = Array(10).fill("0");
+  let codeJoined = false;
   for (const h of hits) {
     score += h.weight;
-    if (h.weight >= 6) {
-      for (let k = h.from; k <= h.to; k++) mask[k] = "1";
-      tags.add(h.tag);
-    }
+    if (h.weight < 6) continue;
+    // узор только внутри кода (999…) не подсвечиваем
+    if (h.to < 3) continue;
+    const isRun = h.tag.includes("одинаков") || h.tag === "Тройка цифр";
+    // в код заходит только повтор одной цифры (977 7…), остальные узоры — с 4-й цифры
+    const from = isRun ? h.from : Math.max(h.from, 3);
+    for (let k = from; k <= h.to; k++) mask[k] = "1";
+    if (isRun && h.from < 3) codeJoined = true;
+    tags.add(h.tag);
   }
-  // если весь «хвост» почти целиком подсвечен — подсвечиваем его полностью
-  const lit = mask.slice(3).filter((c) => c === "1").length;
-  if (lit >= 5) for (let k = 3; k < 10; k++) if (mask[k] === "0" && k > mask.indexOf("1")) {
-    // заполняем пробелы внутри подсвеченной зоны
-    const before = mask.slice(0, k).includes("1");
-    const after = mask.slice(k + 1).includes("1");
-    if (before && after) mask[k] = "1";
-  }
+  // узор начинается в коде (977 7…, 9777777…) — подсвечиваем код целиком
+  if (codeJoined) for (let k = 0; k < 3; k++) mask[k] = "1";
 
   return { score: Math.min(100, Math.round(score)), mask: mask.join(""), tags: [...tags] };
 }

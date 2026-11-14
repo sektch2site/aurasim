@@ -9,11 +9,12 @@ export const POPULAR_MASKS = [
   "*****AAAA*",
   "****ABABAB",
   "AAA***BCBC",
+  "******ABAB",
+  "******A0A0",
+  "***AAABCBC",
   "****AAAA**",
   "******AAAA",
   "***AAA*AAA",
-  "****ABBA**",
-  "***AAAAAAA",
 ];
 
 export function normalizeMask(mask: string): string {

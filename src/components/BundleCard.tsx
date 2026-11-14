@@ -9,33 +9,31 @@ export function BundleCard({ b }: { b: BundleView }) {
   const open = useBuy();
   const word = b.kind === "trio" ? "тройку" : "пару";
   return (
-    <article className="card-glow aura-stripes flex flex-col rounded-3xl p-5">
-      <div className="relative mb-4 text-center">
-        <div className="text-[11px] font-bold tracking-[0.2em] text-ink-soft uppercase">{b.kind === "trio" ? "Тройка номеров" : "Пара номеров"}</div>
-        <div className="font-display mt-1 inline-block rounded-full bg-gradient-to-r from-aura to-[#3d7bff] px-4 py-1.5 text-sm font-extrabold text-white shadow-md shadow-aura/30">
-          {b.title ?? (b.kind === "trio" ? "Интересная тройка" : "Красивая пара")}
-        </div>
+    <article className="aura-card relative flex flex-col overflow-hidden rounded-[26px] p-4 text-white">
+      <div className="relative mb-3 text-center">
+        <div className="text-[10px] font-extrabold tracking-[0.2em] text-white/70 uppercase">{b.kind === "trio" ? "Тройка номеров" : "Пара номеров"}</div>
+        <div className="font-display mt-0.5 text-lg font-extrabold">{b.title ?? (b.kind === "trio" ? "Интересная тройка" : "Красивая пара")}</div>
       </div>
-      <div className="relative mb-4 space-y-2">
+      <div className="relative mb-3 space-y-1.5">
         {b.items.map((n) => (
-          <div key={n.id} className="pill-number rounded-full px-3 py-2 text-center">
-            <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[clamp(1.05rem,1.9vw,1.3rem)]" />
+          <div key={n.id} className="pill-number-strong rounded-2xl px-2 py-2 text-center">
+            <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[1.2rem]" />
           </div>
         ))}
       </div>
-      <div className="price-chip relative mb-4 flex items-center justify-between rounded-2xl px-4 py-2.5">
-        <span className="text-[11px] font-bold tracking-wider text-ink-soft uppercase">🔥 Цена за {word}</span>
-        <span className="flex items-baseline gap-2">
-          {b.price_old && b.price && b.price_old > b.price ? <span className="text-sm font-semibold text-mute line-through">{formatRub(b.price_old)}</span> : null}
-          <span className="num text-xl text-money">{b.price ? formatRub(b.price) : "по запросу"}</span>
-        </span>
+      <div className="relative mt-auto flex items-end justify-between gap-2">
+        <div className="leading-tight">
+          <div className="text-[10px] font-extrabold tracking-wider text-white/70 uppercase">🔥 Цена за {word}</div>
+          {b.price_old && b.price && b.price_old > b.price ? <div className="text-xs font-bold text-white/60 line-through">{formatRub(b.price_old)}</div> : null}
+          <div className="num text-[1.4rem] text-[#7dffa8]">{b.price ? formatRub(b.price) : "по запросу"}</div>
+        </div>
+        <button
+          onClick={() => open(b.price ? { kind: "buy", numbers: b.items.map((i) => i.id), label: word } : { kind: "price", numbers: b.items.map((i) => i.id) })}
+          className="rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-aura shadow-lg shadow-black/10 transition hover:bg-aura-soft active:scale-95"
+        >
+          Купить {word}
+        </button>
       </div>
-      <button
-        onClick={() => open(b.price ? { kind: "buy", numbers: b.items.map((i) => i.id), label: word } : { kind: "price", numbers: b.items.map((i) => i.id) })}
-        className="relative mt-auto rounded-2xl bg-aura px-4 py-3 text-sm font-bold text-white transition hover:bg-aura-deep"
-      >
-        Приобрести {word}
-      </button>
     </article>
   );
 }

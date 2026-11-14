@@ -35,10 +35,10 @@ export function TagIcon({ className = "h-7 w-7" }: { className?: string }) {
 
 /** Строка «Личная встреча | Дистанционное оформление» как на постах */
 export function Features({ compact = false }: { compact?: boolean }) {
-  const t = compact ? "text-[11px] leading-tight" : "text-sm leading-tight";
-  const ic = compact ? "h-6 w-6" : "h-8 w-8";
+  const t = compact ? "text-[10px] leading-[1.15]" : "text-sm leading-tight";
+  const ic = compact ? "h-5 w-5" : "h-8 w-8";
   return (
-    <div className={`flex items-center justify-center ${compact ? "gap-3" : "gap-5"} font-bold text-ink`}>
+    <div className={`flex items-center justify-center ${compact ? "gap-2 rounded-xl border border-line bg-white/80 px-2.5 py-1" : "gap-5"} font-bold text-ink`}>
       <span className="flex items-center gap-2">
         <PeopleIcon className={`${ic} text-aura`} />
         <span className={t}>
@@ -47,7 +47,7 @@ export function Features({ compact = false }: { compact?: boolean }) {
           встреча
         </span>
       </span>
-      <span className={`feature-bar ${compact ? "h-7" : "h-10"}`} />
+      <span className={`feature-bar ${compact ? "h-5 !w-[2px]" : "h-10"}`} />
       <span className="flex items-center gap-2">
         <LaptopIcon className={`${ic} text-aura`} />
         <span className={t}>

@@ -7,7 +7,7 @@ import { formatRub } from "@/lib/pricing";
 import { serviceClient } from "@/lib/supabase/admin";
 import { hasSupabase } from "@/lib/supabase/env";
 import { getAdmin } from "@/lib/supabase/server";
-import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type PhoneNumber, type PriceRule, type Settings, type Tariff } from "@/lib/types";
+import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type PhoneNumber, type PriceRule, type Settings } from "@/lib/types";
 import * as A from "./actions";
 
 export const metadata = { title: "Админка — Aura sim", robots: { index: false } };
@@ -17,7 +17,6 @@ const TABS = [
   ["numbers", "Номера и цены"],
   ["bundles", "Пары и тройки"],
   ["rules", "Правила цен"],
-  ["tariffs", "Тарифы"],
   ["settings", "Настройки"],
   ["sync", "Партнёрка"],
 ] as const;
@@ -79,7 +78,6 @@ async function Admin({ searchParams }: { searchParams: SP }) {
       {tab === "numbers" && <Numbers q={sp.q ? String(sp.q) : ""} />}
       {tab === "bundles" && <Bundles />}
       {tab === "rules" && <Rules />}
-      {tab === "tariffs" && <Tariffs />}
       {tab === "settings" && <SettingsTab />}
       {tab === "sync" && <Sync />}
     </>
@@ -287,42 +285,6 @@ async function Rules() {
   );
 }
 
-/* ---------- Тарифы ---------- */
-
-async function Tariffs() {
-  const { data } = await serviceClient().from("tariffs").select("*").order("position");
-  const rows = (data ?? []) as Tariff[];
-  return (
-    <>
-      <Card title="Новый тариф" note="Показываются в блоке «Выгодные тарифы».">
-        <form action={A.saveTariff} className="grid gap-3 sm:grid-cols-6">
-          <OperatorSelect name="operator" />
-          <input name="name" required placeholder="Название" className={input} />
-          <input name="price" inputMode="numeric" required placeholder="₽/мес" className={input} />
-          <input name="description" placeholder="Описание" className={`${input} sm:col-span-2`} />
-          <button className={btn}>Добавить</button>
-        </form>
-      </Card>
-      <Card title={`Тарифов: ${rows.length}`}>
-        <div className="divide-y divide-line">
-          {rows.map((t) => (
-            <form key={t.id} action={A.saveTariff} className="grid items-center gap-2 py-2.5 sm:grid-cols-8">
-              <input type="hidden" name="id" value={t.id} />
-              <OperatorSelect name="operator" value={t.operator} />
-              <input name="name" defaultValue={t.name} className={input} />
-              <input name="price" defaultValue={t.price} className={input} />
-              <input name="description" defaultValue={t.description ?? ""} className={`${input} sm:col-span-2`} />
-              <input name="position" defaultValue={t.position} title="Порядок" className={input} />
-              <button className={ghost}>Сохранить</button>
-              <button formAction={A.deleteTariff} className={`${ghost} text-fire`}>Удалить</button>
-            </form>
-          ))}
-        </div>
-      </Card>
-    </>
-  );
-}
-
 /* ---------- Настройки ---------- */
 
 async function SettingsTab() {
@@ -344,8 +306,9 @@ async function SettingsTab() {
         {field("phone", "Телефон для звонка", "Пусто — кнопки не будет")}
         {field("markup_percent", "Наценка на цену партнёрки, %", "0 — показывать как в партнёрке")}
         {field("round_to", "Округлять цену до, ₽")}
-        {field("hero_title", "Надпись над заголовком")}
-        {field("hero_subtitle", "Подзаголовок")}
+        {field("hero_title", "Слоган вверху главной")}
+        {field("publish_price", "Цена публикации номера, ₽")}
+        {field("video_url", "Видео «Процесс покупки»", "Ссылка на mp4 или на пост/видео. Пусто — кнопки не будет")}
         <button className={`${btn} sm:col-span-2`}>Сохранить</button>
       </form>
     </Card>

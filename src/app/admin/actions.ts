@@ -222,7 +222,8 @@ export async function saveSettings(form: FormData) {
     markup_percent: Number(str(form, "markup_percent") || 0),
     round_to: Number(str(form, "round_to") || 500),
     hero_title: str(form, "hero_title"),
-    hero_subtitle: str(form, "hero_subtitle"),
+    video_url: str(form, "video_url"),
+    publish_price: Number(str(form, "publish_price").replace(/\D/g, "") || 750),
   };
   const { error } = await db.from("settings").upsert({ id: 1, data });
   if (error) fail("settings", error.message);

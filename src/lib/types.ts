@@ -73,6 +73,10 @@ export interface Settings {
   round_to: number;
   hero_title: string;
   hero_subtitle: string;
+  /** ссылка на видео «Процесс покупки» (mp4 или страница с видео) */
+  video_url: string;
+  /** цена публикации номера на сайте и в канале, ₽ */
+  publish_price: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,7 +88,12 @@ export const DEFAULT_SETTINGS: Settings = {
   round_to: 500,
   hero_title: "Красивый номер для ваших целей",
   hero_subtitle: "Билайн, МегаФон, МТС, Yota и T2 — личная встреча или дистанционное оформление",
+  video_url: "",
+  publish_price: 750,
 };
+
+/** Логотипы операторов (файлы в public/operators). Пока файла нет — показывается цветной кружок. */
+export const OPERATOR_LOGOS: Partial<Record<Operator, string>> = {};
 
 export type ResolvedPrice =
   | { kind: "fixed"; price: number; old: number | null }
@@ -102,6 +111,7 @@ export interface CatalogQuery {
   region?: string;
   withPrice?: boolean;
   sort?: "beauty" | "price_asc" | "price_desc" | "new";
+  ids?: string[];
   page?: number;
   pageSize?: number;
 }

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     sort: (p.get("sort") as CatalogQuery["sort"]) ?? "beauty",
     page: num("page") ?? 1,
     pageSize: num("size") ?? 40,
+    ids: p.get("ids")?.split(",").filter(Boolean),
   };
   try {
     const res = await searchCatalog(q);

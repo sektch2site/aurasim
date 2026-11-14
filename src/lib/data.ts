@@ -149,6 +149,11 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   const [rules, settings] = await Promise.all([getRules(), getSettings()]);
   const page = Math.max(1, q.page ?? 1);
   const pageSize = Math.min(100, q.pageSize ?? 40);
+  if (q.ids?.length) {
+    const ids = q.ids.map((x) => x.replace(/\D/g, "").slice(-10)).filter((x) => x.length === 10).slice(0, 200);
+    const items = (await byIds(ids)).filter((n) => n.is_active).map((n) => enrich(n, rules, settings));
+    return { items, total: items.length, page: 1, pageSize: items.length };
+  }
   const like = digitsToLike(q.code, q.digits);
   const free = q.q?.replace(/\D/g, "") || undefined;
 
@@ -189,6 +194,14 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   // разные буквы маски = разные цифры (в SQL не проверяется)
   if (q.mask) items = items.filter((i) => matchMask(i.id, q.mask!));
   return { items, total: Number(rows[0]?.total ?? 0), page, pageSize };
+}
+
+/** Первая страница «Все номера» на главной (кешируется) */
+export async function getTopNumbers(pageSize = 30): Promise<CatalogResult> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(CATALOG_TAG);
+  return searchCatalog({ sort: "beauty", page: 1, pageSize });
 }
 
 export async function getRegions(): Promise<string[]> {
