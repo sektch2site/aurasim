@@ -53,7 +53,7 @@ export async function getTariffs(): Promise<Tariff[]> {
 function enrich(n: PhoneNumber, rules: PriceRule[], settings: Settings): CatalogItem {
   const rule = findRule(n, rules);
   // подсветку считаем на лету — правила подсветки меняются сразу для всех номеров
-  return { ...n, beauty_mask: analyzeBeauty(n.id).mask, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
+  return { ...n, beauty_mask: n.mask_override && /^[01]{10}$/.test(n.mask_override) ? n.mask_override : analyzeBeauty(n.id).mask, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
 }
 
 async function byIds(ids: string[]): Promise<PhoneNumber[]> {

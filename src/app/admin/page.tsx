@@ -9,6 +9,7 @@ import { hasSupabase } from "@/lib/supabase/env";
 import { getAdmin } from "@/lib/supabase/server";
 import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type PhoneNumber, type PriceRule, type Settings } from "@/lib/types";
 import * as A from "./actions";
+import { MaskPicker } from "./MaskPicker";
 
 export const metadata = { title: "Админка — Aura sim", robots: { index: false } };
 
@@ -75,7 +76,7 @@ async function Admin({ searchParams }: { searchParams: SP }) {
       {ok && <div className="mb-4 rounded-2xl bg-money-soft p-3 text-sm font-semibold text-money">✓ {ok}</div>}
       {err && <div className="mb-4 rounded-2xl bg-fire/10 p-3 text-sm font-semibold text-fire">{err}</div>}
       {tab === "featured" && <Featured />}
-      {tab === "numbers" && <Numbers q={sp.q ? String(sp.q) : ""} />}
+      {tab === "numbers" && <Numbers q={sp.q ? String(sp.q) : ""} hl={sp.hl ? String(sp.hl) : ""} />}
       {tab === "bundles" && <Bundles />}
       {tab === "rules" && <Rules />}
       {tab === "settings" && <SettingsTab />}
@@ -132,7 +133,7 @@ async function Featured() {
           {rows.map((r, i) => (
             <div key={r.number_id} className="flex items-center gap-3 py-2.5">
               <span className="w-6 text-sm text-mute">{i + 1}</span>
-              <NumberDisplay id={r.number_id} mask={r.numbers?.beauty_mask ?? "0".repeat(10)} className="flex-1 text-lg" />
+              <NumberDisplay id={r.number_id} mask={r.numbers?.mask_override || r.numbers?.beauty_mask || "0".repeat(10)} className="flex-1 text-lg" />
               {!r.numbers?.is_active && <span className="rounded bg-fire/10 px-2 py-0.5 text-xs font-bold text-fire">нет в партнёрке</span>}
               <form action={A.moveFeatured}>
                 <input type="hidden" name="id" value={r.number_id} />
@@ -159,7 +160,7 @@ async function Featured() {
 
 /* ---------- Номера ---------- */
 
-async function Numbers({ q }: { q: string }) {
+async function Numbers({ q, hl }: { q: string; hl: string }) {
   const db = serviceClient();
   const digits = q.replace(/\D/g, "");
   let query = db.from("numbers").select("*").order("beauty_score", { ascending: false }).limit(50);
@@ -178,6 +179,10 @@ async function Numbers({ q }: { q: string }) {
           <button className={btn}>Сохранить</button>
         </form>
       </Card>
+      <div id="hl" />
+      <Card title="Подсветка цифр" note="Введите номер и нажмите на цифры, которые должны быть выделены синим. Работает для любого номера из базы.">
+        <MaskPicker key={hl} action={A.saveMask} initialId={hl} />
+      </Card>
       <Card title={digits ? `Поиск: ${digits}` : "Номера с ручной ценой"}>
         <form className="mb-4 flex gap-2">
           <input type="hidden" name="tab" value="numbers" />
@@ -187,13 +192,16 @@ async function Numbers({ q }: { q: string }) {
         <div className="divide-y divide-line">
           {rows.map((n) => (
             <div key={n.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-sm">
-              <NumberDisplay id={n.id} mask={n.beauty_mask} className="min-w-52 text-lg" />
+              <NumberDisplay id={n.id} mask={n.mask_override || n.beauty_mask} className="min-w-52 text-lg" />
               <span className="text-ink-soft">{operatorName(n.operator)}</span>
               <span className="text-ink-soft">{n.tariff_name ? `${n.tariff_name} ${n.tariff_price ?? ""}₽` : ""}</span>
               <span>партнёрка: {n.partner_price ? formatRub(n.partner_price) : "—"}</span>
               <span className="font-bold text-money">{n.price_override ? formatRub(n.price_override) : ""}</span>
               <span className="text-mute">балл {n.beauty_score}</span>
-              <form action={A.toggleNumber} className="ml-auto">
+              <Link href={`/admin?tab=numbers&hl=${n.id}${q ? `&q=${encodeURIComponent(q)}` : ""}#hl`} className={`${ghost} ml-auto`}>
+                Подсветка
+              </Link>
+              <form action={A.toggleNumber}>
                 <input type="hidden" name="id" value={n.id} />
                 <input type="hidden" name="active" value={n.is_active ? "0" : "1"} />
                 <button className={ghost}>{n.is_active ? "Скрыть" : "Показать"}</button>

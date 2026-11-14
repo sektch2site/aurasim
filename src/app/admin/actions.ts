@@ -72,6 +72,21 @@ export async function saveNumber(form: FormData) {
   done("numbers", `Номер +7 ${id} сохранён`);
 }
 
+/** Ручная подсветка цифр номера (reset — вернуть автоматическую) */
+export async function saveMask(form: FormData) {
+  const db = await guard();
+  const id = phone(str(form, "id"));
+  if (id.length !== 10) fail("numbers", "Номер должен содержать 10 цифр после +7");
+  const reset = str(form, "reset") === "1";
+  const mask = str(form, "mask");
+  if (!reset && !/^[01]{10}$/.test(mask)) fail("numbers", "Не получилось прочитать подсветку");
+  const { data: existing } = await db.from("numbers").select("id").eq("id", id).maybeSingle();
+  if (!existing) fail("numbers", `Номера +7 ${id} нет в базе — сначала задайте ему цену`);
+  const { error } = await db.from("numbers").update({ mask_override: reset ? null : mask }).eq("id", id);
+  if (error) fail("numbers", error.message);
+  done("numbers", reset ? `+7 ${id}: подсветка снова автоматическая` : `+7 ${id}: подсветка сохранена`);
+}
+
 export async function toggleNumber(form: FormData) {
   const db = await guard();
   const id = phone(str(form, "id"));

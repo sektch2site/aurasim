@@ -26,6 +26,8 @@ export interface PhoneNumber {
   beauty_score: number;
   /** 10 символов '0'/'1' — какие цифры подсвечивать */
   beauty_mask: string;
+  /** ручная подсветка из админки (10 символов '0'/'1'), важнее автоматической */
+  mask_override?: string | null;
   tags: string[];
   is_active: boolean;
   source: "partner" | "manual";
