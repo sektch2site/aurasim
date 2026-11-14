@@ -37,6 +37,18 @@ export function isBudgetPattern(id: string): boolean {
   return true;
 }
 
+/** ***X AAAAA Y — ровно пять одинаковых в середине (977 933 33 34, 901 533 33 36) */
+export function isFiveMiddle(id: string): boolean {
+  const m = /^\d{3}(\d)(\d)\2\2\2\2(\d)$/.exec(id);
+  return !!m && m[1] !== m[2] && m[3] !== m[2];
+}
+
+/** ***AAAAA XY — пять одинаковых сразу после кода и две другие на конце (991 222 22 15) */
+export function isFiveStart(id: string): boolean {
+  const m = /^\d{3}(\d)\1\1\1\1(\d)(\d)$/.exec(id);
+  return !!m && m[2] !== m[1] && m[3] !== m[1] && m[2] !== m[3];
+}
+
 export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Settings): ResolvedPrice {
   if (n.price_override && n.price_override > 0) {
     return { kind: "fixed", price: n.price_override, old: n.price_old };
@@ -50,6 +62,13 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
     return { kind: "fixed", price: p, old: n.price_old };
   }
   const rule = findRule(n, rules);
+  if (rule && rule.price_from && isFiveMiddle(n.id)) {
+    return { kind: "fixed", price: settings.five_mid_price || 3500, old: null };
+  }
+  if (rule && rule.price_from && isFiveStart(n.id)) {
+    const from = settings.five_start_from || 10000;
+    return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.five_start_to || 15000)), old: null };
+  }
   if (rule && rule.price_from && isBudgetPattern(n.id)) {
     const from = settings.budget_price_from || 5000;
     return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };

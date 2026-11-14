@@ -310,6 +310,9 @@ async function SettingsTab() {
         {field("publish_price", "Цена публикации номера, ₽")}
         {field("budget_price_from", "Бюджетные номера (…ABAB, A0A0): цена от, ₽")}
         {field("budget_price_to", "Бюджетные номера: цена до, ₽")}
+        {field("five_mid_price", "Пять одинаковых в середине (977 933 33 34), ₽")}
+        {field("five_start_from", "Пять одинаковых сразу после кода (991 222 22 15): от, ₽")}
+        {field("five_start_to", "Пять одинаковых сразу после кода: до, ₽")}
         <label className="flex items-start gap-3 sm:col-span-2">
           <input type="checkbox" name="hide_buyout_price" defaultChecked={s.hide_buyout_price} className="mt-1 h-5 w-5 accent-aura" />
           <span>

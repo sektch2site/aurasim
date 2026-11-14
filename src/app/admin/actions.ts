@@ -227,6 +227,9 @@ export async function saveSettings(form: FormData) {
     publish_price: Number(str(form, "publish_price").replace(/\D/g, "") || 750),
     hide_buyout_price: form.get("hide_buyout_price") === "on",
     budget_price_from: Number(str(form, "budget_price_from").replace(/\D/g, "") || 5000),
+    five_start_from: Number(str(form, "five_start_from").replace(/\D/g, "") || 10000),
+    five_start_to: Number(str(form, "five_start_to").replace(/\D/g, "") || 15000),
+    five_mid_price: Number(str(form, "five_mid_price").replace(/\D/g, "") || 3500),
     budget_price_to: Number(str(form, "budget_price_to").replace(/\D/g, "") || 7000),
   };
   const { error } = await db.from("settings").upsert({ id: 1, data });

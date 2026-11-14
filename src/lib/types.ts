@@ -82,6 +82,11 @@ export interface Settings {
   /** бюджетные номера (окончание ABAB: A0A0, AAA***BCBC) — диапазон цены, ₽ */
   budget_price_from: number;
   budget_price_to: number;
+  /** номера вида ***X AAAAA Y (977 933 33 34) — фиксированная цена, ₽ */
+  five_mid_price: number;
+  /** номера вида ***AAAAA XY (991 222 22 15) — диапазон цены, ₽ */
+  five_start_from: number;
+  five_start_to: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -98,6 +103,9 @@ export const DEFAULT_SETTINGS: Settings = {
   hide_buyout_price: true,
   budget_price_from: 5000,
   budget_price_to: 7000,
+  five_mid_price: 3500,
+  five_start_from: 10000,
+  five_start_to: 15000,
 };
 
 /** Логотипы операторов (файлы в public/operators). Пока файла нет — показывается цветной кружок. */
