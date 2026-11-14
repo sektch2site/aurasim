@@ -96,6 +96,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const OPERATOR_LOGOS: Partial<Record<Operator, string>> = {
   beeline: "/operators/beeline.png",
   megafon: "/operators/megafon.png",
+  mts: "/operators/mts.png",
   yota: "/operators/yota.png",
   t2: "/operators/t2.png",
 };
