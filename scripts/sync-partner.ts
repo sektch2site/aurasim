@@ -63,7 +63,9 @@ async function getCookie(): Promise<string> {
   if (error) throw new Error(error.message);
   const raw = (data?.cookie ?? "").trim();
   if (!raw) throw new SessionExpired("Cookie партнёрки не задан — вставьте его в админке сайта");
-  return raw.includes("=") ? raw : `PHPSESSID=${raw}`;
+  const sess = raw.includes("=") ? raw : `PHPSESSID=${raw}`;
+  // кабинет ставит ещё служебные cookie — отправляем их как браузер
+  return `${sess}; mdd=0; isDark=1`;
 }
 
 async function setSession(status: string, message: string | null) {
@@ -82,7 +84,9 @@ async function fetchPage(cookie: string, mask: string, offset: number, attempt =
         "X-Requested-With": "XMLHttpRequest",
         Accept: "application/json, text/javascript, */*; q=0.01",
         Referer: `${BASE}/number`,
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        Origin: BASE,
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
       },
       body,
     });
