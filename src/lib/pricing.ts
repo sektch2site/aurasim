@@ -21,10 +21,17 @@ export function findRule(n: Pick<PhoneNumber, "operator" | "tariff_price">, rule
  * 3. диапазон по правилу оператор/тариф
  * 4. «Запросить цену»
  */
+/** То же правило, что колонка numbers.vip в базе */
+export function isVipPattern(id: string): boolean {
+  return /(\d)\1{5}/.test(id) || /(\d)\1{4}$/.test(id) || /^\d{3}(\d)\1{4}(\d)\2$/.test(id);
+}
+
 export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Settings): ResolvedPrice {
   if (n.price_override && n.price_override > 0) {
     return { kind: "fixed", price: n.price_override, old: n.price_old };
   }
+  // особые номера (6 одинаковых подряд, 5 одинаковых на конце, ***AAAAABB) — всегда по запросу
+  if (isVipPattern(n.id)) return { kind: "request" };
   if (n.partner_price && n.partner_price > 0) {
     const p = roundPrice(n.partner_price * (1 + settings.markup_percent / 100), settings.round_to);
     // дорогие выкупные номера — без цены, покупатель спрашивает её у менеджера

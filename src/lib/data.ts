@@ -2,7 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
 import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
-import { findRule, priceSortValue, resolvePrice } from "./pricing";
+import { findRule, isVipPattern, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
 import { publicClient } from "./supabase/public";
 import {
@@ -178,9 +178,9 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     else items.sort((a, b) => b.beauty_score - a.beauty_score || a.id.localeCompare(b.id));
     if (sort === "mix") {
       const ruled = (i: PhoneNumber) => !!findRule(i, rules)?.price_from;
-      const cheap = items.filter((i) => (i.price_override != null ? i.price_override <= MIX_SPLIT : i.partner_price == null && ruled(i)));
-      const premium = items.filter((i) => (i.price_override != null ? i.price_override > MIX_SPLIT : i.partner_price != null));
-      const request = items.filter((i) => i.price_override == null && i.partner_price == null && !ruled(i));
+      const cheap = items.filter((i) => (i.price_override != null ? i.price_override <= MIX_SPLIT : i.partner_price == null && !isVipPattern(i.id) && ruled(i)));
+      const premium = items.filter((i) => (i.price_override != null ? i.price_override > MIX_SPLIT : i.partner_price != null || isVipPattern(i.id)));
+      const request = items.filter((i) => i.price_override == null && i.partner_price == null && !isVipPattern(i.id) && !ruled(i));
       const plan = planMix((page - 1) * pageSize, pageSize, cheap.length, premium.length, request.length);
       const src = { A: cheap, B: premium, C: request };
       return { items: plan.map(([bk, i]) => src[bk][i]), total: items.length, page, pageSize };
