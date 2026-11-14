@@ -158,6 +158,8 @@ export function analyzeBeauty(raw: string): BeautyResult {
   }
   // узор начинается в коде (977 7…, 9777777…) — подсвечиваем код целиком
   if (codeJoined) for (let k = 0; k < 3; k++) mask[k] = "1";
+  // номер после кода собран всего из двух цифр (112 12 12, 665 65 65) — подсвечиваем его целиком
+  if (distinct <= 2) for (let k = 3; k < 10; k++) mask[k] = "1";
 
   return { score: Math.min(100, Math.round(score)), mask: mask.join(""), tags: [...tags] };
 }

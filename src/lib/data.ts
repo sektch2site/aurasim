@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { analyzeBeauty } from "./beauty";
 import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
 import { findRule, priceSortValue, resolvePrice } from "./pricing";
@@ -51,7 +52,8 @@ export async function getTariffs(): Promise<Tariff[]> {
 
 function enrich(n: PhoneNumber, rules: PriceRule[], settings: Settings): CatalogItem {
   const rule = findRule(n, rules);
-  return { ...n, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
+  // подсветку считаем на лету — правила подсветки меняются сразу для всех номеров
+  return { ...n, beauty_mask: analyzeBeauty(n.id).mask, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
 }
 
 async function byIds(ids: string[]): Promise<PhoneNumber[]> {
