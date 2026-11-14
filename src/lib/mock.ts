@@ -154,7 +154,7 @@ export function mockNumbers(): PhoneNumber[] {
 }
 
 export const MOCK_RULES: PriceRule[] = [
-  { id: "r1", operator: "mts", tariff_max: 950, price_from: 9000, price_to: 15000, tariff_note: "тариф до 950 ₽/мес" },
+  ...(["beeline", "megafon", "mts", "yota", "t2", "other"] as const).map((op) => ({ id: `r-${op}`, operator: op, tariff_max: null, price_from: 13000, price_to: 17000, tariff_note: null })),
 ];
 
 export const MOCK_FEATURED: string[] = [

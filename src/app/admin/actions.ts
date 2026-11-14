@@ -225,6 +225,7 @@ export async function saveSettings(form: FormData) {
     hero_title: str(form, "hero_title"),
     video_url: str(form, "video_url"),
     publish_price: Number(str(form, "publish_price").replace(/\D/g, "") || 750),
+    hide_price_above: Number(str(form, "hide_price_above").replace(/\D/g, "") || 0),
   };
   const { error } = await db.from("settings").upsert({ id: 1, data });
   if (error) fail("settings", error.message);
