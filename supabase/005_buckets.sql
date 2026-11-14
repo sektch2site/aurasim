@@ -36,9 +36,9 @@ begin
       and (not p_discount or n.price_old > coalesce(n.price_override, n.partner_price))
       and (p_bucket is null
         or (p_bucket = 'cheap' and (coalesce(n.price_override, n.partner_price) <= p_split
-              or (coalesce(n.price_override, n.partner_price) is null and n.operator = any(coalesce(p_rule_ops, '{}')))))
+              or (coalesce(n.price_override, n.partner_price) is null and exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
         or (p_bucket = 'premium' and coalesce(n.price_override, n.partner_price) > p_split)
-        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (n.operator = any(coalesce(p_rule_ops, '{}')))));
+        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))));
 
   if p_sort = 'price_asc' then
     return query select to_jsonb(n.*), v_total from public.numbers n
@@ -51,9 +51,9 @@ begin
       and (not p_discount or n.price_old > coalesce(n.price_override, n.partner_price))
       and (p_bucket is null
         or (p_bucket = 'cheap' and (coalesce(n.price_override, n.partner_price) <= p_split
-              or (coalesce(n.price_override, n.partner_price) is null and n.operator = any(coalesce(p_rule_ops, '{}')))))
+              or (coalesce(n.price_override, n.partner_price) is null and exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
         or (p_bucket = 'premium' and coalesce(n.price_override, n.partner_price) > p_split)
-        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (n.operator = any(coalesce(p_rule_ops, '{}')))))
+        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
     order by coalesce(n.price_override, n.partner_price) asc nulls last, n.beauty_score desc
     limit p_limit offset p_offset;
   elsif p_sort = 'price_desc' then
@@ -67,9 +67,9 @@ begin
       and (not p_discount or n.price_old > coalesce(n.price_override, n.partner_price))
       and (p_bucket is null
         or (p_bucket = 'cheap' and (coalesce(n.price_override, n.partner_price) <= p_split
-              or (coalesce(n.price_override, n.partner_price) is null and n.operator = any(coalesce(p_rule_ops, '{}')))))
+              or (coalesce(n.price_override, n.partner_price) is null and exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
         or (p_bucket = 'premium' and coalesce(n.price_override, n.partner_price) > p_split)
-        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (n.operator = any(coalesce(p_rule_ops, '{}')))))
+        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
     order by coalesce(n.price_override, n.partner_price) desc nulls last, n.beauty_score desc
     limit p_limit offset p_offset;
   elsif p_sort = 'new' then
@@ -83,9 +83,9 @@ begin
       and (not p_discount or n.price_old > coalesce(n.price_override, n.partner_price))
       and (p_bucket is null
         or (p_bucket = 'cheap' and (coalesce(n.price_override, n.partner_price) <= p_split
-              or (coalesce(n.price_override, n.partner_price) is null and n.operator = any(coalesce(p_rule_ops, '{}')))))
+              or (coalesce(n.price_override, n.partner_price) is null and exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
         or (p_bucket = 'premium' and coalesce(n.price_override, n.partner_price) > p_split)
-        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (n.operator = any(coalesce(p_rule_ops, '{}')))))
+        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
     order by n.first_seen desc, n.beauty_score desc
     limit p_limit offset p_offset;
   else
@@ -99,9 +99,9 @@ begin
       and (not p_discount or n.price_old > coalesce(n.price_override, n.partner_price))
       and (p_bucket is null
         or (p_bucket = 'cheap' and (coalesce(n.price_override, n.partner_price) <= p_split
-              or (coalesce(n.price_override, n.partner_price) is null and n.operator = any(coalesce(p_rule_ops, '{}')))))
+              or (coalesce(n.price_override, n.partner_price) is null and exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
         or (p_bucket = 'premium' and coalesce(n.price_override, n.partner_price) > p_split)
-        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (n.operator = any(coalesce(p_rule_ops, '{}')))))
+        or (p_bucket = 'request' and coalesce(n.price_override, n.partner_price) is null and not (exists (select 1 from public.price_rules r where r.operator = n.operator and r.price_from is not null and (r.tariff_max is null or n.tariff_price <= r.tariff_max)))))
     order by n.beauty_score desc, n.id
     limit p_limit offset p_offset;
   end if;

@@ -175,11 +175,11 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
       items.sort((a, b) => (b.price.kind === "request" ? -1 : priceSortValue(b.price)) - (a.price.kind === "request" ? -1 : priceSortValue(a.price)));
     else items.sort((a, b) => b.beauty_score - a.beauty_score || a.id.localeCompare(b.id));
     if (sort === "mix") {
-      const ruleOps = new Set(rules.filter((r) => r.price_from).map((r) => r.operator));
+      const ruled = (i: PhoneNumber) => !!findRule(i, rules)?.price_from;
       const dbPrice = (i: PhoneNumber) => i.price_override ?? i.partner_price;
-      const cheap = items.filter((i) => (dbPrice(i) ?? Infinity) <= MIX_SPLIT || (dbPrice(i) == null && ruleOps.has(i.operator)));
+      const cheap = items.filter((i) => (dbPrice(i) ?? Infinity) <= MIX_SPLIT || (dbPrice(i) == null && ruled(i)));
       const premium = items.filter((i) => (dbPrice(i) ?? 0) > MIX_SPLIT);
-      const request = items.filter((i) => dbPrice(i) == null && !ruleOps.has(i.operator));
+      const request = items.filter((i) => dbPrice(i) == null && !ruled(i));
       const plan = planMix((page - 1) * pageSize, pageSize, cheap.length, premium.length, request.length);
       const src = { A: cheap, B: premium, C: request };
       return { items: plan.map(([bk, i]) => src[bk][i]), total: items.length, page, pageSize };
