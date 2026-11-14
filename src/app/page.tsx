@@ -9,7 +9,7 @@ export default async function Home() {
   const [settings, featured, top] = await Promise.all([getSettings(), getFeatured(), getTopNumbers(30)]);
 
   return (
-    <div className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-5">
+    <div className="mx-auto max-w-4xl px-3 pt-3 sm:px-4 sm:pt-5">
       {/* короткая шапка: слоган + плашки сбоку */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2 text-[10px] font-extrabold tracking-[0.2em] text-ink uppercase sm:text-[11px]">
@@ -31,7 +31,7 @@ export default async function Home() {
                   </div>
                   <span className="text-xs font-semibold text-ink-soft sm:hidden">листайте →</span>
                 </div>
-                <div className="no-scrollbar -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
+                <div className="no-scrollbar -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
                   {featured.map((n, i) => (
                     <NumberCard key={n.id} n={n} delay={Math.min(i, 6) * 40} />
                   ))}

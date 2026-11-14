@@ -52,7 +52,7 @@ export function maskToPgRegex(rawMask: string): string {
   let out = "^";
   for (const ch of mask) {
     if (ch === "*") out += "[0-9]";
-    else if (/\d/.test(ch)) out += ch;
+    else if (/\d/.test(ch)) out += `[${ch}]`; // в скобках, чтобы не склеилось с обратной ссылкой (\1 0 → \10)
     else if (groups.has(ch)) out += `\\${groups.get(ch)}`;
     else {
       groups.set(ch, groups.size + 1);

@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { formatNumber } from "@/lib/beauty";
+import { formatRub } from "@/lib/pricing";
 import { POPULAR_MASKS } from "@/lib/mask";
 import { OPERATORS, type CatalogItem, type CatalogResult, type Operator } from "@/lib/types";
 import { NumberRow } from "./NumberRow";
+import { NumberTile } from "./NumberTile";
 import { OperatorDot } from "./NumberDisplay";
 
 const CODES = Array.from({ length: 100 }, (_, i) => String(900 + i));
@@ -15,10 +18,41 @@ interface Filters {
   ops: Operator[];
   mask: string;
   priced: boolean;
-  sort: "beauty" | "price_asc" | "price_desc";
+  discount: boolean;
+  sort: "beauty" | "price_asc" | "price_desc" | "new";
 }
 
-const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, sort: "beauty" };
+const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, discount: false, sort: "beauty" };
+
+/* вид списка: «list» или «grid», запоминается в браузере */
+type View = "list" | "grid";
+const viewListeners = new Set<() => void>();
+const readView = (): View => {
+  try {
+    return localStorage.getItem("aura:view") === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+};
+const writeView = (v: View) => {
+  try {
+    localStorage.setItem("aura:view", v);
+  } catch {
+    // нет хранилища — просто не запомним
+  }
+  viewListeners.forEach((l) => l());
+};
+const subscribeView = (l: () => void) => {
+  viewListeners.add(l);
+  return () => viewListeners.delete(l);
+};
+
+function priceText(n: CatalogItem) {
+  const p = n.price;
+  if (p.kind === "fixed") return formatRub(p.price) + (p.old && p.old > p.price ? ` (было ${formatRub(p.old)})` : "");
+  if (p.kind === "range") return `${formatRub(p.from)} – ${formatRub(p.to)}`;
+  return "цена по запросу";
+}
 const PAGE = 30;
 
 function toParams(f: Filters, page: number) {
@@ -29,13 +63,15 @@ function toParams(f: Filters, page: number) {
   if (f.ops.length) p.set("ops", f.ops.join(","));
   if (f.mask) p.set("mask", f.mask);
   if (f.priced) p.set("priced", "1");
+  if (f.discount) p.set("discount", "1");
   p.set("sort", f.sort);
   p.set("page", String(page));
   p.set("size", String(PAGE));
   return p.toString();
 }
 
-const isEmpty = (f: Filters) => !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && f.sort === "beauty";
+const isEmpty = (f: Filters) =>
+  !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && !f.discount && f.sort === "beauty";
 
 /**
  * Поиск + список номеров. Пока фильтры пустые — показываем «Все номера» (начальная страница с сервера),
@@ -51,6 +87,42 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const view = useSyncExternalStore(subscribeView, readView, () => "list" as View);
+
+  const flash = (t: string) => {
+    setNote(t);
+    setTimeout(() => setNote(null), 2200);
+  };
+
+  const copyNumbers = async () => {
+    const text = res.items.map((n) => `${formatNumber(n.id)} — ${priceText(n)}`).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      flash(`Скопировано: ${res.items.length} номеров`);
+    } catch {
+      flash("Не удалось скопировать");
+    }
+  };
+
+  const downloadNumbers = async () => {
+    flash("Готовим файл…");
+    const all: CatalogItem[] = [];
+    for (let page = 1; page <= 20 && all.length < 2000; page++) {
+      const r = (await (await fetch(`/api/numbers?${toParams(f, page).replace(`size=${PAGE}`, "size=100")}`)).json()) as CatalogResult;
+      all.push(...(r.items ?? []));
+      if (!r.items?.length || all.length >= r.total) break;
+    }
+    const rows = [["Номер", "Оператор", "Цена", "Регион"], ...all.map((n) => [formatNumber(n.id), n.operator, priceText(n), n.region ?? ""])];
+    const csv = "\ufeff" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "aura-sim-nomera.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    flash(`Скачано: ${all.length} номеров`);
+  };
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -117,7 +189,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
             aria-label="Код"
             value={f.code}
             onChange={(e) => set("code", e.target.value)}
-            className="num h-11 w-[4.1rem] shrink-0 rounded-lg border border-line bg-white px-1.5 text-base outline-none focus:border-aura sm:w-24 sm:rounded-xl sm:text-lg"
+            className="select-nice num h-11 w-[4.6rem] shrink-0 rounded-lg border border-line bg-white px-2 text-base outline-none focus:border-aura sm:w-24 sm:rounded-xl sm:text-lg"
           >
             <option value="">9**</option>
             {CODES.map((c) => (
@@ -206,20 +278,27 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
             Найдено: <span className="num text-ink">{new Intl.NumberFormat("ru-RU").format(res.total)}</span> шт
           </span>
         </div>
-        <div className="mb-2.5 flex flex-wrap items-center gap-3 px-1">
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold select-none">
-            <input
-              type="checkbox"
-              checked={f.priced}
-              onChange={(e) => {
-                const nf = { ...f, priced: e.target.checked };
-                setF(nf);
-                run(nf, 1, false);
-              }}
-              className="h-5 w-5 accent-aura"
-            />
-            Только с ценой
-          </label>
+        <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
+          {(
+            [
+              ["priced", "С ценой"],
+              ["discount", "Со скидкой"],
+            ] as const
+          ).map(([k, label]) => (
+            <label key={k} className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold select-none">
+              <input
+                type="checkbox"
+                checked={f[k]}
+                onChange={(e) => {
+                  const nf = { ...f, [k]: e.target.checked };
+                  setF(nf);
+                  run(nf, 1, false);
+                }}
+                className="h-5 w-5 accent-aura"
+              />
+              {label}
+            </label>
+          ))}
           <select
             value={f.sort}
             onChange={(e) => {
@@ -227,18 +306,47 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
               setF(nf);
               run(nf, 1, false);
             }}
-            className="rounded-lg border border-line bg-white px-2 py-1.5 text-sm font-semibold"
+            className="select-nice rounded-xl border border-line bg-white py-1.5 pl-3 text-sm font-semibold outline-none focus:border-aura"
           >
             <option value="beauty">Сначала красивые</option>
+            <option value="new">Сначала новые</option>
             <option value="price_asc">Сначала дешевле</option>
             <option value="price_desc">Сначала дороже</option>
           </select>
+          <div className="ml-auto flex rounded-xl border border-line bg-white p-0.5" role="group" aria-label="Вид">
+            {(
+              [
+                ["list", "Списком", "M4 6h16M4 12h16M4 18h16"],
+                ["grid", "Плиткой", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"],
+              ] as const
+            ).map(([v, label, d]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => writeView(v)}
+                aria-label={label}
+                aria-pressed={view === v}
+                className={`grid h-8 w-9 place-items-center rounded-lg transition ${view === v ? "bg-aura text-white" : "text-ink-soft hover:text-aura"}`}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill={v === "grid" ? "currentColor" : "none"} stroke="currentColor" strokeWidth={v === "grid" ? 0 : 2.4} strokeLinecap="round">
+                  <path d={d} />
+                </svg>
+              </button>
+            ))}
+          </div>
         </div>
+        <div className="mb-3 grid grid-cols-2 gap-2 px-1">
+          <button type="button" onClick={copyNumbers} className="rounded-xl border border-aura/30 bg-white py-2 text-xs font-bold text-aura hover:bg-aura-soft sm:text-sm">
+            Скопировать номера
+          </button>
+          <button type="button" onClick={downloadNumbers} className="rounded-xl border border-aura/30 bg-white py-2 text-xs font-bold text-aura hover:bg-aura-soft sm:text-sm">
+            Скачать номера (.csv)
+          </button>
+        </div>
+        {note && <div className="mb-2 px-1 text-center text-sm font-semibold text-aura">{note}</div>}
 
-        <div className="space-y-2">
-          {res.items.map((n) => (
-            <NumberRow key={n.id} n={n} />
-          ))}
+        <div className={view === "grid" ? "grid grid-cols-2 gap-2 lg:grid-cols-3" : "space-y-2"}>
+          {res.items.map((n) => (view === "grid" ? <NumberTile key={n.id} n={n} /> : <NumberRow key={n.id} n={n} />))}
           {!res.items.length && !loading && (
             <div className="card-glow rounded-2xl p-8 text-center text-ink-soft">
               {res.searched ? "Ничего не нашли — уберите часть цифр или фильтров, или напишите нам: подберём вручную." : "Номера скоро появятся."}

@@ -169,11 +169,11 @@ async function Numbers({ q }: { q: string }) {
   const rows = (data ?? []) as PhoneNumber[];
   return (
     <>
-      <Card title="Задать цену номеру" note="Ручная цена важнее цены из партнёрки и правил. «Было» — для зачёркнутой цены. Если номера нет в базе — он добавится как ручной.">
+      <Card title="Задать цену номеру" note="Ручная цена важнее цены из партнёрки и правил. Скидка: укажите новую цену и «Было» — на сайте будет зачёркнутая цена и бейдж −%. Если номера нет в базе — он добавится как ручной.">
         <form action={A.saveNumber} className="grid gap-3 sm:grid-cols-6">
           <input name="id" required placeholder="Номер" className={`${input} sm:col-span-2`} />
           <input name="price" inputMode="numeric" placeholder="Цена, ₽" className={input} />
-          <input name="price_old" inputMode="numeric" placeholder="Было, ₽" className={input} />
+          <input name="price_old" inputMode="numeric" placeholder="Было (до скидки), ₽" className={input} />
           <OperatorSelect name="operator" any />
           <button className={btn}>Сохранить</button>
         </form>

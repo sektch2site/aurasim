@@ -21,7 +21,12 @@ export function NumberRow({ n }: { n: CatalogItem }) {
             {p.kind === "fixed" ? (
               <>
                 <span className="text-money">{formatRub(p.price)}</span>
-                {p.old && p.old > p.price ? <span className="text-mute line-through">{formatRub(p.old)}</span> : null}
+                {p.old && p.old > p.price ? (
+                  <>
+                    <span className="text-mute line-through">{formatRub(p.old)}</span>
+                    <span className="rounded-full bg-fire px-1.5 text-[10px] font-extrabold text-white">−{Math.round((1 - p.price / p.old) * 100)}%</span>
+                  </>
+                ) : null}
               </>
             ) : p.kind === "range" ? (
               <span className="text-money">

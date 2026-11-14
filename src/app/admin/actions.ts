@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import { analyzeBeauty } from "@/lib/beauty";
 import { CATALOG_TAG } from "@/lib/data";
+import { maskTags } from "@/lib/partner";
 import { serviceClient } from "@/lib/supabase/admin";
 import { getAdmin, sessionClient } from "@/lib/supabase/server";
 import type { Operator, Settings } from "@/lib/types";
@@ -66,7 +67,7 @@ export async function saveNumber(form: FormData) {
   };
   const { error } = existing
     ? await db.from("numbers").update(patch).eq("id", id)
-    : await db.from("numbers").insert({ id, ...patch, source: "manual", beauty_score: b.score, beauty_mask: b.mask, tags: b.tags });
+    : await db.from("numbers").insert({ id, ...patch, source: "manual", beauty_score: b.score, beauty_mask: b.mask, tags: b.tags, masks: maskTags(id) });
   if (error) fail("numbers", error.message);
   done("numbers", `Номер +7 ${id} сохранён`);
 }
@@ -96,7 +97,7 @@ export async function addFeatured(form: FormData) {
     await db.from("numbers").insert(
       missing.map((id) => {
         const b = analyzeBeauty(id);
-        return { id, source: "manual", beauty_score: b.score, beauty_mask: b.mask, tags: b.tags };
+        return { id, source: "manual", beauty_score: b.score, beauty_mask: b.mask, tags: b.tags, masks: maskTags(id) };
       }),
     );
   }
@@ -140,7 +141,7 @@ export async function saveBundle(form: FormData) {
   await db.from("numbers").upsert(
     numbers.map((id) => {
       const b = analyzeBeauty(id);
-      return { id, beauty_score: b.score, beauty_mask: b.mask, tags: b.tags, source: "manual" };
+      return { id, beauty_score: b.score, beauty_mask: b.mask, tags: b.tags, masks: maskTags(id), source: "manual" };
     }),
     { onConflict: "id", ignoreDuplicates: true },
   );

@@ -115,6 +115,7 @@ export interface CatalogQuery {
   tariffMax?: number;
   region?: string;
   withPrice?: boolean;
+  discount?: boolean;
   sort?: "beauty" | "price_asc" | "price_desc" | "new";
   ids?: string[];
   page?: number;

@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { digitsToLike, matchLike, matchMask, maskToPgRegex } from "./mask";
+import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
 import { findRule, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
@@ -168,6 +168,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     if (q.region) list = list.filter((n) => n.region === q.region);
     let items = list.map((n) => enrich(n, rules, settings));
     if (q.withPrice) items = items.filter((i) => i.price.kind === "fixed");
+    if (q.discount) items = items.filter((i) => i.price.kind === "fixed" && (i.price.old ?? 0) > i.price.price);
     if (q.sort === "price_asc") items.sort((a, b) => priceSortValue(a.price) - priceSortValue(b.price));
     else if (q.sort === "price_desc")
       items.sort((a, b) => (b.price.kind === "request" ? -1 : priceSortValue(b.price)) - (a.price.kind === "request" ? -1 : priceSortValue(a.price)));
@@ -177,7 +178,8 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 
   const { data, error } = await publicClient().rpc("search_numbers", {
     p_like: like,
-    p_regex: q.mask ? maskToPgRegex(q.mask) : null,
+    p_regex: q.mask && !POPULAR_MASKS.includes(normalizeMask(q.mask)) ? maskToPgRegex(q.mask) : null,
+    p_mask_tag: q.mask && POPULAR_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
     p_q: free ?? null,
     p_operators: q.operators?.length ? q.operators : null,
     p_tariff_min: q.tariffMin ?? null,
@@ -185,6 +187,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     p_region: q.region ?? null,
     p_with_price: Boolean(q.withPrice),
     p_sort: q.sort ?? "beauty",
+    p_discount: Boolean(q.discount),
     p_limit: pageSize,
     p_offset: (page - 1) * pageSize,
   });

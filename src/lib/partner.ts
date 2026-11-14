@@ -1,4 +1,8 @@
 import { analyzeBeauty } from "./beauty";
+import { matchMask, POPULAR_MASKS } from "./mask";
+
+/** Какие популярные маски подходят номеру — для быстрого поиска */
+export const maskTags = (id: string) => POPULAR_MASKS.filter((m) => matchMask(id, m));
 
 /** Запись номера из кабинета «Агентство Связи» (урезанная раннером) */
 export interface PartnerItem {
@@ -33,6 +37,7 @@ export function partnerToRow(it: PartnerItem, runId: number, now: string) {
     beauty_score: b.score,
     beauty_mask: b.mask,
     tags: b.tags,
+    masks: maskTags(id),
     is_active: true,
     source: "partner",
     last_seen: now,
