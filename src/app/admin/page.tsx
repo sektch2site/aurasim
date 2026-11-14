@@ -308,7 +308,13 @@ async function SettingsTab() {
         {field("round_to", "Округлять цену до, ₽")}
         {field("hero_title", "Слоган вверху главной")}
         {field("publish_price", "Цена публикации номера, ₽")}
-        {field("hide_price_above", "Выкупные дороже, ₽ — без цены", "Номера из партнёрки дороже этой суммы показываются с кнопкой «Узнать цену». 0 — всегда показывать цену")}
+        <label className="flex items-start gap-3 sm:col-span-2">
+          <input type="checkbox" name="hide_buyout_price" defaultChecked={s.hide_buyout_price} className="mt-1 h-5 w-5 accent-aura" />
+          <span>
+            <span className="block text-sm font-bold">Выкупные номера — без цены («Узнать цену»)</span>
+            <span className="block text-xs text-mute">Номера, у которых в партнёрке стоит цена выкупа. Своя цена из «Номера и цены» всё равно показывается.</span>
+          </span>
+        </label>
         {field("video_url", "Видео «Процесс покупки»", "Ссылка на mp4 или на пост/видео. Пусто — кнопки не будет")}
         <button className={`${btn} sm:col-span-2`}>Сохранить</button>
       </form>

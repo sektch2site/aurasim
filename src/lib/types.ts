@@ -77,8 +77,8 @@ export interface Settings {
   video_url: string;
   /** цена публикации номера на сайте и в канале, ₽ */
   publish_price: number;
-  /** выкупные номера дороже этой суммы показываем без цены («Узнать цену»); 0 — всегда с ценой */
-  hide_price_above: number;
+  /** выкупные номера (с ценой из партнёрки) показываем без цены — «Узнать цену» */
+  hide_buyout_price: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -92,7 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hero_subtitle: "Билайн, МегаФон, МТС, Yota и T2 — личная встреча или дистанционное оформление",
   video_url: "",
   publish_price: 750,
-  hide_price_above: 30000,
+  hide_buyout_price: true,
 };
 
 /** Логотипы операторов (файлы в public/operators). Пока файла нет — показывается цветной кружок. */

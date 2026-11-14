@@ -28,7 +28,7 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   if (n.partner_price && n.partner_price > 0) {
     const p = roundPrice(n.partner_price * (1 + settings.markup_percent / 100), settings.round_to);
     // дорогие выкупные номера — без цены, покупатель спрашивает её у менеджера
-    if (settings.hide_price_above > 0 && p > settings.hide_price_above) return { kind: "request" };
+    if (settings.hide_buyout_price) return { kind: "request" };
     return { kind: "fixed", price: p, old: n.price_old };
   }
   const rule = findRule(n, rules);

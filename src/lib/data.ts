@@ -178,10 +178,9 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     else items.sort((a, b) => b.beauty_score - a.beauty_score || a.id.localeCompare(b.id));
     if (sort === "mix") {
       const ruled = (i: PhoneNumber) => !!findRule(i, rules)?.price_from;
-      const dbPrice = (i: PhoneNumber) => i.price_override ?? i.partner_price;
-      const cheap = items.filter((i) => (dbPrice(i) ?? Infinity) <= MIX_SPLIT || (dbPrice(i) == null && ruled(i)));
-      const premium = items.filter((i) => (dbPrice(i) ?? 0) > MIX_SPLIT);
-      const request = items.filter((i) => dbPrice(i) == null && !ruled(i));
+      const cheap = items.filter((i) => (i.price_override != null ? i.price_override <= MIX_SPLIT : i.partner_price == null && ruled(i)));
+      const premium = items.filter((i) => (i.price_override != null ? i.price_override > MIX_SPLIT : i.partner_price != null));
+      const request = items.filter((i) => i.price_override == null && i.partner_price == null && !ruled(i));
       const plan = planMix((page - 1) * pageSize, pageSize, cheap.length, premium.length, request.length);
       const src = { A: cheap, B: premium, C: request };
       return { items: plan.map(([bk, i]) => src[bk][i]), total: items.length, page, pageSize };
@@ -221,7 +220,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     return { items: r.items, total: Math.max(0, r.total), page, pageSize };
   }
 
-  // Смешанная выдача: сначала 5 недорогих (до 30 000 ₽), дальше по 2 недорогих и 2 дорогих,
+  // Смешанная выдача: сначала 5 недорогих (до 30 000 ₽), дальше 3 недорогих на 1 дорогой,
   // номера без цены и без правила цены — в конце
   const buckets = ["cheap", "premium", "request"] as const;
   const totals = await Promise.all(buckets.map(async (bk) => Math.max(0, (await slice("beauty", bk, 0, 1)).total)));
@@ -245,13 +244,14 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 
 const MIX_SPLIT = 30000;
 
-/** Раскладка смешанной выдачи: первые 5 — недорогие (A), дальше A,A,B,B…; без цены (C) — после них */
+/** Раскладка смешанной выдачи: первые 5 — недорогие (A), дальше A,A,A,B…; без цены (C) — после них */
 function planMix(offset: number, size: number, totA: number, totB: number, totC = 0): ["A" | "B" | "C", number][] {
   const out: ["A" | "B" | "C", number][] = [];
   const used = { A: 0, B: 0, C: 0 };
   const tot = { A: totA, B: totB, C: totC };
   for (let i = 0; i < offset + size; i++) {
-    const want: "A" | "B" = i < 5 ? "A" : (i - 5) % 4 < 2 ? "A" : "B";
+    // приоритет недорогим: первые 5 — недорогие, дальше 3 недорогих на 1 дорогой
+    const want: "A" | "B" = i < 5 ? "A" : (i - 5) % 4 < 3 ? "A" : "B";
     const order: ("A" | "B" | "C")[] = want === "A" ? ["A", "B", "C"] : ["B", "A", "C"];
     const pick = order.find((k) => used[k] < tot[k]);
     if (!pick) break;
