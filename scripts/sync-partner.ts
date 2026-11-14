@@ -86,7 +86,11 @@ async function fetchPage(cookie: string, mask: string, offset: number, attempt =
       },
       body,
     });
-    if (r.status >= 300 && r.status < 400) throw new SessionExpired("Сессия партнёрки истекла — войдите заново и обновите cookie в админке");
+    if (r.status >= 300 && r.status < 400) {
+      const loc = r.headers.get("location") ?? "";
+      if (process.env.DEBUG_PARTNER) console.log("redirect", r.status, loc);
+      throw new SessionExpired(`Сессия партнёрки истекла — войдите заново и обновите cookie в админке (→ ${loc || r.status})`);
+    }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const text = await r.text();
     let json: { list?: PartnerItem[]; total?: string | number };
@@ -145,6 +149,12 @@ async function revalidate() {
 }
 
 async function check() {
+  if (process.env.DEBUG_PARTNER) {
+    const r = await fetch(`${BASE}/login`, { redirect: "manual" });
+    console.log("GET /login без cookie:", r.status, r.headers.get("location"), (await r.text()).length, "байт");
+    const ip = await fetch("https://api.ipify.org").then((x) => x.text()).catch(() => "?");
+    console.log("IP раннера:", ip);
+  }
   try {
     const cookie = await getCookie();
     const { total } = await fetchPage(cookie, "******AAAA", 0);
