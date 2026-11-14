@@ -79,6 +79,9 @@ export interface Settings {
   publish_price: number;
   /** выкупные номера (с ценой из партнёрки) показываем без цены — «Узнать цену» */
   hide_buyout_price: boolean;
+  /** бюджетные номера (окончание ABAB: A0A0, AAA***BCBC) — диапазон цены, ₽ */
+  budget_price_from: number;
+  budget_price_to: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -93,6 +96,8 @@ export const DEFAULT_SETTINGS: Settings = {
   video_url: "",
   publish_price: 750,
   hide_buyout_price: true,
+  budget_price_from: 5000,
+  budget_price_to: 7000,
 };
 
 /** Логотипы операторов (файлы в public/operators). Пока файла нет — показывается цветной кружок. */

@@ -2,7 +2,10 @@ import { analyzeBeauty } from "./beauty";
 import { matchMask, POPULAR_MASKS } from "./mask";
 
 /** Какие популярные маски подходят номеру — для быстрого поиска */
-export const maskTags = (id: string) => POPULAR_MASKS.filter((m) => matchMask(id, m));
+/** «…ABAB» и «…A0A0» — бюджетные окончания; номера с ABABAB на конце живут в маске «****ABABAB» */
+const ENDS_ABABAB = /(\d)(\d)\1\2\1\2$/;
+export const maskTags = (id: string) =>
+  POPULAR_MASKS.filter((m) => matchMask(id, m) && !((m === "******ABAB" || m === "******A0A0") && ENDS_ABABAB.test(id)));
 
 /** Запись номера из кабинета «Агентство Связи» (урезанная раннером) */
 export interface PartnerItem {

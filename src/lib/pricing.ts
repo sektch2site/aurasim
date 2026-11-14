@@ -26,6 +26,17 @@ export function isVipPattern(id: string): boolean {
   return /(\d)\1{5}/.test(id) || /(\d)\1{4}$/.test(id) || /^\d{3}(\d)\1{4}(\d)\2$/.test(id);
 }
 
+/**
+ * Бюджетный класс: окончание ABAB (12 12, 40 40, AAA***BCBC), но не ABABAB
+ * и без тройки сразу после кода (***AAABCBC остаётся в обычной цене).
+ */
+export function isBudgetPattern(id: string): boolean {
+  if (!/(\d)(?!\1)(\d)\1\2$/.test(id)) return false;
+  if (/(\d)(\d)\1\2\1\2$/.test(id)) return false;
+  if (id[3] === id[4] && id[4] === id[5]) return false;
+  return true;
+}
+
 export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Settings): ResolvedPrice {
   if (n.price_override && n.price_override > 0) {
     return { kind: "fixed", price: n.price_override, old: n.price_old };
@@ -39,6 +50,10 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
     return { kind: "fixed", price: p, old: n.price_old };
   }
   const rule = findRule(n, rules);
+  if (rule && rule.price_from && isBudgetPattern(n.id)) {
+    const from = settings.budget_price_from || 5000;
+    return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };
+  }
   if (rule && rule.price_from) {
     return { kind: "fixed", price: priceInRange(n, rule.price_from, rule.price_to ?? rule.price_from), old: null };
   }

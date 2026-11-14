@@ -156,10 +156,17 @@ export function analyzeBeauty(raw: string): BeautyResult {
     if (isRun && h.from < 3) codeJoined = true;
     tags.add(h.tag);
   }
+  // код перекликается с парой на конце (960 … 60 60) — код тоже часть узора
+  if (/^(\d)(?!\1)(\d)\1\2$/.test(tail)) {
+    const pair = tail.slice(2);
+    if (s.slice(1, 3) === pair || s.slice(0, 2) === pair) codeJoined = true;
+  }
   // узор начинается в коде (977 7…, 9777777…) — подсвечиваем код целиком
   if (codeJoined) for (let k = 0; k < 3; k++) mask[k] = "1";
   // номер после кода собран всего из двух цифр (112 12 12, 665 65 65) — подсвечиваем его целиком
   if (distinct <= 2) for (let k = 3; k < 10; k++) mask[k] = "1";
+  // одиночная «дырка» между подсвеченными цифрами (999 9[2]2 42 42) — закрашиваем, чтобы узор читался целиком
+  for (let k = 1; k < 9; k++) if (mask[k] === "0" && mask[k - 1] === "1" && mask[k + 1] === "1") mask[k] = "1";
 
   return { score: Math.min(100, Math.round(score)), mask: mask.join(""), tags: [...tags] };
 }

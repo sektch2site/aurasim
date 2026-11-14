@@ -226,6 +226,8 @@ export async function saveSettings(form: FormData) {
     video_url: str(form, "video_url"),
     publish_price: Number(str(form, "publish_price").replace(/\D/g, "") || 750),
     hide_buyout_price: form.get("hide_buyout_price") === "on",
+    budget_price_from: Number(str(form, "budget_price_from").replace(/\D/g, "") || 5000),
+    budget_price_to: Number(str(form, "budget_price_to").replace(/\D/g, "") || 7000),
   };
   const { error } = await db.from("settings").upsert({ id: 1, data });
   if (error) fail("settings", error.message);

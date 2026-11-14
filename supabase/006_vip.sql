@@ -109,3 +109,8 @@ begin
 end $$;
 
 grant execute on function public.search_numbers to anon, authenticated, service_role;
+
+-- маски «…ABAB» и «…A0A0» без номеров с ABABAB на конце; A0A0 — не 0000
+update public.numbers set masks = array_remove(array_remove(masks, '******A0A0'), '******ABAB')
+  where id ~ '(\d)(\d)\1\2\1\2$' and (masks @> array['******A0A0'] or masks @> array['******ABAB']);
+update public.numbers set masks = array_remove(masks, '******A0A0') where id like '%0000' and masks @> array['******A0A0'];

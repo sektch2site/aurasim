@@ -308,6 +308,8 @@ async function SettingsTab() {
         {field("round_to", "Округлять цену до, ₽")}
         {field("hero_title", "Слоган вверху главной")}
         {field("publish_price", "Цена публикации номера, ₽")}
+        {field("budget_price_from", "Бюджетные номера (…ABAB, A0A0): цена от, ₽")}
+        {field("budget_price_to", "Бюджетные номера: цена до, ₽")}
         <label className="flex items-start gap-3 sm:col-span-2">
           <input type="checkbox" name="hide_buyout_price" defaultChecked={s.hide_buyout_price} className="mt-1 h-5 w-5 accent-aura" />
           <span>

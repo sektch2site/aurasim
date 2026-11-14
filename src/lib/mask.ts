@@ -26,6 +26,8 @@ export function matchMask(id: string, rawMask: string): boolean {
   const mask = normalizeMask(rawMask);
   const map = new Map<string, string>();
   const used = new Map<string, string>();
+  // буква не может совпадать с цифрой, написанной в маске явно (A0A0 — не 0000)
+  for (const ch of mask) if (/\d/.test(ch)) used.set(ch, "#");
   for (let i = 0; i < 10; i++) {
     const m = mask[i];
     const d = id[i];
