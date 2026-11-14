@@ -14,7 +14,7 @@
     "***ABBA***", "****ABBA**", "*****ABBA*", "******ABBA", "***ABC*ABC", "***AAA*AAA",
   ];
   var PAGE = 150;
-  var CONCURRENCY = 4;
+  var CONCURRENCY = 6;
   var st = (window.__auraSync = { state: "running", startedAt: new Date().toISOString(), mask: "", pages: 0, seen: 0, own: 0, error: null, runId: null });
 
   function Expired(msg) { this.message = msg; this.expired = true; }
