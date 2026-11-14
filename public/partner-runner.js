@@ -19,7 +19,18 @@
 
   function Expired(msg) { this.message = msg; this.expired = true; }
 
-  function api(body) {
+  async function api(body, attempt) {
+    attempt = attempt || 1;
+    try {
+      return await apiOnce(body);
+    } catch (e) {
+      if (attempt >= 4) throw e;
+      await new Promise(function (res) { setTimeout(res, 3000 * attempt); });
+      return api(body, attempt + 1);
+    }
+  }
+
+  function apiOnce(body) {
     return fetch(SITE + "/api/ingest", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
@@ -92,7 +103,7 @@
       st.seen = seen.size;
     }
     function flush(force) {
-      if (!buffer.length || (!force && buffer.length < 1000)) return sending;
+      if (!buffer.length || (!force && buffer.length < 500)) return sending;
       var chunk = buffer.splice(0, buffer.length);
       sending = sending.then(function () { return api({ action: "batch", runId: st.runId, items: chunk }); });
       return sending;
