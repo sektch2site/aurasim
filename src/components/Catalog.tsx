@@ -159,7 +159,8 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
     setF((s) => {
       const digits = [...s.digits];
       digits[i] = d;
-      return { ...s, digits };
+      // ввели цифры — маска сбрасывается, иначе можно получить «ничего не нашли»
+      return { ...s, digits, mask: d ? "" : s.mask };
     });
     if (d && i < 6) boxes.current[i + 1]?.focus();
   };
@@ -221,7 +222,10 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
 
         <input
           value={f.q}
-          onChange={(e) => set("q", e.target.value.replace(/[^\d]/g, ""))}
+          onChange={(e) => {
+            const q = e.target.value.replace(/[^\d]/g, "");
+            setF((s) => ({ ...s, q, mask: q ? "" : s.mask }));
+          }}
           inputMode="numeric"
           placeholder="Любимые цифры, напр. 777"
           className="mb-2 h-11 w-full rounded-xl border border-line bg-white px-4 text-base outline-none placeholder:text-mute focus:border-aura focus:ring-4 focus:ring-aura/15"
@@ -251,7 +255,9 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
             <button
               type="button"
               key={m}
-              onClick={() => set("mask", f.mask === m ? "" : m)}
+              onClick={() =>
+                setF((s) => (s.mask === m ? { ...s, mask: "" } : { ...s, mask: m, digits: Array(7).fill(""), q: "" }))
+              }
               className={`num shrink-0 rounded-xl border px-2.5 py-1.5 text-[13px] tracking-wider transition ${
                 f.mask === m ? "border-aura bg-aura text-white" : "border-line bg-white text-ink hover:border-aura/40"
               }`}
