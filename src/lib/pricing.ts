@@ -55,9 +55,24 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
     return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };
   }
   if (rule && rule.price_from) {
-    return { kind: "fixed", price: priceInRange(n, rule.price_from, rule.price_to ?? rule.price_from), old: null };
+    const base = priceInRange(n, rule.price_from, rule.price_to ?? rule.price_from);
+    return { kind: "fixed", price: base + laconicBonus(n.id), old: null };
   }
   return { kind: "request" };
+}
+
+/**
+ * Надбавка за лаконичность: чем меньше разных цифр после кода и чем больше они
+ * повторяют цифры кода, тем номер дороже (966 848 44 44 дороже 959 789 44 44).
+ */
+export function laconicBonus(id: string): number {
+  const code = new Set(id.slice(0, 3));
+  const body = id.slice(3);
+  const uniq = new Set(body);
+  let bonus = uniq.size <= 2 ? 8000 : uniq.size === 3 ? 4000 : uniq.size === 4 ? 1000 : 0;
+  // все цифры после кода уже есть в коде (966 696 66 99) — ещё лаконичнее
+  if (uniq.size <= 3 && [...uniq].every((d) => code.has(d))) bonus += 2000;
+  return bonus;
 }
 
 /** Стабильное «случайное» число 0..1 по номеру (одинаковое при каждом показе) */
@@ -70,7 +85,7 @@ function seed(id: string): number {
 /** Конкретная цена внутри диапазона правила: чем красивее номер — тем ближе к верху. Шаг 1000 ₽. */
 export function priceInRange(n: Pick<PhoneNumber, "id" | "beauty_score">, from: number, to: number): number {
   if (to <= from) return from;
-  const t = Math.min(1, Math.max(0, 0.6 * (n.beauty_score / 100) + 0.4 * seed(n.id)));
+  const t = Math.min(1, Math.max(0, 0.8 * (n.beauty_score / 100) + 0.2 * seed(n.id)));
   return Math.round((from + (to - from) * t) / 1000) * 1000;
 }
 
