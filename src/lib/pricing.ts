@@ -74,7 +74,7 @@ export const PATTERN_PRICES: { name: string; example: string; from: number; to: 
 
 /**
  * Окончание «не связано» с узором: последние цифры случайные (901 838 31 37, 932 888 82 27).
- * Связано, если: две одинаковые в конце, ABAB/ABBA/ABA, ступенька (123/321), или пара в конце уже встречалась после кода.
+ * Связано, если: две одинаковые в конце, ABAB/ABBA, ступенька (123/321), или пара в конце уже встречалась после кода.
  */
 export function endingUnrelated(id: string): boolean {
   const d = id.split("").map(Number);
@@ -82,7 +82,6 @@ export function endingUnrelated(id: string): boolean {
   if (c === e) return false;
   if (a === c && b === e) return false; // ABAB
   if (a === e && b === c) return false; // ABBA
-  if (b === e) return false; // ABA на конце
   if (e - c === c - b && Math.abs(e - c) === 1) return false; // 123 / 321
   const pair = id.slice(8);
   if (id.slice(3, 8).includes(pair)) return false;
