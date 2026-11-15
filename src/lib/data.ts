@@ -270,6 +270,12 @@ function hashStr(s: string): number {
   return h >>> 0;
 }
 
+/** Сильный номер для витрины: после кода не больше 3 разных цифр, или тройка подряд, или ABAB на конце */
+function strongNumber(id: string): boolean {
+  const b = id.slice(3);
+  return new Set(b).size <= 3 || /(\d)\1\1/.test(b) || /(\d)(?!\1)(\d)\1\2$/.test(b);
+}
+
 const FEED_OPS = ["beeline", "megafon", "mts", "yota", "t2"] as const;
 
 /**
@@ -306,7 +312,7 @@ async function recommendedPage(page: number, pageSize: number, day: string): Pro
   const res = await Promise.all(
     FEED_OPS.map(async (op) => {
       // только самые красивые: узкое окно сверху по красоте, без дешёвых «проходных» комбинаций
-      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 5, 400), slice(op, "premium", kPrem, 150)]);
+      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 8, 600), slice(op, "premium", kPrem, 150)]);
       // в рекомендациях — только «чистые» номера: узор доходит до конца номера, цена не копеечная;
       // среди них выше те, что красивее и лаконичнее при разумной цене
       const attract = (x: CatalogItem) =>
@@ -314,7 +320,7 @@ async function recommendedPage(page: number, pageSize: number, day: string): Pro
       const c = {
         ...c0,
         items: c0.items
-          .filter((x) => x.price.kind === "fixed" && x.price.price >= 6000 && !endingUnrelated(x.id))
+          .filter((x) => x.price.kind === "fixed" && x.price.price >= 6000 && !endingUnrelated(x.id) && strongNumber(x.id))
           .sort((a, b) => attract(b) - attract(a))
           .slice(0, kCheap),
       };
