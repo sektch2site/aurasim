@@ -2,7 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
 import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
-import { findRule, isVipPattern, priceSortValue, resolvePrice } from "./pricing";
+import { findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
 import { publicClient } from "./supabase/public";
 import {
@@ -306,8 +306,18 @@ async function recommendedPage(page: number, pageSize: number, day: string): Pro
   const res = await Promise.all(
     FEED_OPS.map(async (op) => {
       // только самые красивые: узкое окно сверху по красоте, без дешёвых «проходных» комбинаций
-      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 3, 400), slice(op, "premium", kPrem, 150)]);
-      const c = { ...c0, items: c0.items.filter((x) => x.price.kind !== "fixed" || x.price.price >= 6000).slice(0, kCheap) };
+      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 5, 400), slice(op, "premium", kPrem, 150)]);
+      // в рекомендациях — только «чистые» номера: узор доходит до конца номера, цена не копеечная;
+      // среди них выше те, что красивее и лаконичнее при разумной цене
+      const attract = (x: CatalogItem) =>
+        x.beauty_score + Math.max(0, 8 - new Set(x.id.slice(3)).size) * 4 + (x.price.kind === "fixed" && x.price.price <= 20000 ? 6 : 0);
+      const c = {
+        ...c0,
+        items: c0.items
+          .filter((x) => x.price.kind === "fixed" && x.price.price >= 6000 && !endingUnrelated(x.id))
+          .sort((a, b) => attract(b) - attract(a))
+          .slice(0, kCheap),
+      };
       // у оператора: недорогой, недорогой, дорогой, …
       const q: CatalogItem[] = [];
       const ci = [...c.items];
