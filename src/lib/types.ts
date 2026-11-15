@@ -141,6 +141,9 @@ export interface CatalogQuery {
   region?: string;
   withPrice?: boolean;
   discount?: boolean;
+  /** фильтр по цене, ₽ */
+  priceMin?: number;
+  priceMax?: number;
   sort?: "mix" | "beauty" | "price_asc" | "price_desc" | "new";
   ids?: string[];
   page?: number;

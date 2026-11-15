@@ -72,6 +72,33 @@ export const PATTERN_PRICES: { name: string; example: string; from: number; to: 
   { name: "****AAAA**", example: "969 233 33 20", from: 6500, to: 6500, test: (b) => /^(\d)(\d)\2\2\2(\d)/.test(b) && b[0] !== b[1] && b[5] !== b[1] },
 ];
 
+/**
+ * Окончание «не связано» с узором: последние цифры случайные (901 838 31 37, 932 888 82 27).
+ * Связано, если: две одинаковые в конце, ABAB/ABBA/ABA, ступенька (123/321), или пара в конце уже встречалась после кода.
+ */
+export function endingUnrelated(id: string): boolean {
+  const d = id.split("").map(Number);
+  const [a, b, c, e] = [d[6], d[7], d[8], d[9]];
+  if (c === e) return false;
+  if (a === c && b === e) return false; // ABAB
+  if (a === e && b === c) return false; // ABBA
+  if (b === e) return false; // ABA на конце
+  if (e - c === c - b && Math.abs(e - c) === 1) return false; // 123 / 321
+  const pair = id.slice(8);
+  if (id.slice(3, 8).includes(pair)) return false;
+  return true;
+}
+
+/** «Проходной» номер: слабый узор в середине и случайный конец — на сайт не выкладываем (901 838 31 37) */
+export function isJunkNumber(id: string): boolean {
+  const b = id.slice(3);
+  if (!endingUnrelated(id)) return false;
+  if (/(\d)\1\1/.test(b)) return false; // есть тройка — это уже «AAA + случайный конец», цена 5000
+  if (patternPrice(id)) return false;
+  if (/(\d)\1\1\1/.test(id)) return false;
+  return true;
+}
+
 export function patternPrice(id: string): { from: number; to: number } | null {
   const b = id.slice(3);
   const p = PATTERN_PRICES.find((x) => x.test(b));
@@ -107,6 +134,9 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   }
   const pp = rule && rule.price_from ? patternPrice(n.id) : null;
   if (pp) return { kind: "fixed", price: spread(n, pp.from, pp.to), old: null };
+  // тройка (или больше) и случайный конец — 932 888 82 27
+  if (rule && rule.price_from && endingUnrelated(n.id) && /(\d)\1\1/.test(n.id.slice(3)) && !isFiveStart(n.id) && !isFiveMiddle(n.id))
+    return { kind: "fixed", price: 5000, old: null };
   if (rule && rule.price_from && isBudgetPattern(n.id)) {
     const from = settings.budget_price_from || 5000;
     return { kind: "fixed", price: spread(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };

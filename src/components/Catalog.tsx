@@ -19,10 +19,22 @@ interface Filters {
   mask: string;
   priced: boolean;
   discount: boolean;
+  /** цена от / до, ₽ (строки из полей) */
+  pmin: string;
+  pmax: string;
   sort: "mix" | "beauty" | "price_asc" | "price_desc" | "new";
 }
 
-const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, discount: false, sort: "mix" };
+const EMPTY: Filters = { code: "", digits: Array(7).fill(""), q: "", ops: [], mask: "", priced: false, discount: false, pmin: "", pmax: "", sort: "mix" };
+
+const PRICE_PRESETS: [string, string, string][] = [
+  ["до 5 000", "", "5000"],
+  ["5–10 тыс", "5000", "10000"],
+  ["10–20 тыс", "10000", "20000"],
+  ["20–40 тыс", "20000", "40000"],
+  ["от 40 тыс", "40000", ""],
+];
+const fmtMoney = (v: string) => (v ? Number(v).toLocaleString("ru-RU") : "");
 
 /* вид списка: «list» или «grid», запоминается в браузере */
 type View = "list" | "grid";
@@ -77,6 +89,8 @@ function toParams(f: Filters, page: number) {
   if (f.mask && !lettered) p.set("mask", f.mask);
   if (f.priced) p.set("priced", "1");
   if (f.discount) p.set("discount", "1");
+  if (f.pmin) p.set("pmin", f.pmin);
+  if (f.pmax) p.set("pmax", f.pmax);
   p.set("sort", f.sort);
   p.set("page", String(page));
   p.set("size", String(PAGE));
@@ -84,7 +98,7 @@ function toParams(f: Filters, page: number) {
 }
 
 const isEmpty = (f: Filters) =>
-  !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && !f.discount && f.sort === "mix";
+  !f.code && !f.digits.some(Boolean) && !f.q && !f.ops.length && !f.mask && !f.priced && !f.discount && !f.pmin && !f.pmax && f.sort === "mix";
 
 /**
  * Поиск + список номеров. Пока фильтры пустые — показываем «Все номера» (начальная страница с сервера),
@@ -288,6 +302,45 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
               </button>
             );
           })}
+        </div>
+
+        <div className="mb-3 rounded-2xl border border-aura/25 bg-gradient-to-r from-aura-soft/70 to-white p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-sm font-extrabold text-ink">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-aura text-xs text-white">₽</span>
+              Цена
+            </span>
+            <div className="flex items-center gap-1.5">
+              {(["pmin", "pmax"] as const).map((k) => (
+                <input
+                  key={k}
+                  value={fmtMoney(f[k])}
+                  onChange={(e) => set(k, e.target.value.replace(/\D/g, "").slice(0, 7))}
+                  inputMode="numeric"
+                  placeholder={k === "pmin" ? "от" : "до"}
+                  aria-label={k === "pmin" ? "Цена от" : "Цена до"}
+                  className="h-8 w-[5.5rem] rounded-lg border border-line bg-white px-2 text-sm font-semibold outline-none placeholder:font-normal placeholder:text-mute focus:border-aura"
+                />
+              ))}
+            </div>
+          </div>
+          <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
+            {PRICE_PRESETS.map(([label, a, b]) => {
+              const on = f.pmin === a && f.pmax === b;
+              return (
+                <button
+                  type="button"
+                  key={label}
+                  onClick={() => setF((s) => (on ? { ...s, pmin: "", pmax: "" } : { ...s, pmin: a, pmax: b }))}
+                  className={`shrink-0 rounded-xl border px-3 py-1.5 text-sm font-bold transition ${
+                    on ? "border-aura bg-aura text-white shadow-md shadow-aura/30" : "border-aura/20 bg-white text-aura-deep hover:border-aura/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="no-scrollbar -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1">

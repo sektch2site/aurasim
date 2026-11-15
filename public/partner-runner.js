@@ -93,13 +93,15 @@
     var scanned = 0;
     var skipped = 0;
     var sending = Promise.resolve();
-    function push(list) {
+    function push(list, own) {
       for (var k = 0; k < list.length; k++) {
         var it = list[k];
         var id = String(it.number || "").replace(/\D/g, "");
         if (!id || seen.has(id)) continue;
         seen.add(id);
-        buffer.push(trim(it));
+        var t = trim(it);
+        if (own) t._own = true;
+        buffer.push(t);
       }
       st.seen = seen.size;
     }
@@ -119,7 +121,7 @@
         var list = (res && res.data && res.data.list) || [];
         if (!list.length) break;
         st.own += list.length;
-        push(list);
+        push(list, true);
         if (list.length < 10) break;
       }
 

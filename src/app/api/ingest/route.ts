@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { CATALOG_TAG } from "@/lib/data";
 import { partnerToRow, type PartnerItem } from "@/lib/partner";
+import { DEFAULT_SETTINGS, type PriceRule, type Settings } from "@/lib/types";
 import { serviceClient } from "@/lib/supabase/admin";
 
 /**
@@ -47,8 +48,13 @@ export async function POST(req: Request) {
     }
     case "batch": {
       const seenIds = new Set<string>();
+      const [{ data: rules }, { data: st }] = await Promise.all([
+        db.from("price_rules").select("*"),
+        db.from("settings").select("data").eq("id", 1).maybeSingle(),
+      ]);
+      const settings = { ...DEFAULT_SETTINGS, ...((st?.data as Partial<Settings>) ?? {}) } as Settings;
       const rows = (body.items ?? [])
-        .map((it) => partnerToRow(it, body.runId, now))
+        .map((it) => partnerToRow(it, body.runId, now, (rules as PriceRule[]) ?? [], settings))
         .filter((r): r is NonNullable<typeof r> => !!r && !seenIds.has(r.id) && !!seenIds.add(r.id));
       if (!rows.length) return json({ count: 0 });
       const { error } = await db.from("numbers").upsert(rows, { onConflict: "id" });

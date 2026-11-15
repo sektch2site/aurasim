@@ -171,6 +171,8 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     let items = list.map((n) => enrich(n, rules, settings));
     if (q.withPrice) items = items.filter((i) => i.price.kind === "fixed");
     if (q.discount) items = items.filter((i) => i.price.kind === "fixed" && (i.price.old ?? 0) > i.price.price);
+    if (q.priceMin != null) items = items.filter((i) => i.price.kind === "fixed" && i.price.price >= q.priceMin!);
+    if (q.priceMax != null) items = items.filter((i) => i.price.kind === "fixed" && i.price.price <= q.priceMax!);
     const sort = q.sort ?? "mix";
     if (sort === "price_asc") items.sort((a, b) => priceSortValue(a.price) - priceSortValue(b.price));
     else if (sort === "price_desc")
@@ -182,7 +184,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
       const premium = items.filter((i) => (i.price_override != null ? i.price_override > MIX_SPLIT : i.partner_price != null || isVipPattern(i.id)));
       const request = items.filter((i) => i.price_override == null && i.partner_price == null && !isVipPattern(i.id) && !ruled(i));
       const plan = planMix((page - 1) * pageSize, pageSize, cheap.length, premium.length, request.length);
-      const src = { A: cheap, B: premium, C: request };
+      const src = { A: cheap, B: premium, C: request, D: [] as typeof cheap };
       return { items: plan.map(([bk, i]) => src[bk][i]), total: items.length, page, pageSize };
     }
     return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
@@ -201,8 +203,12 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     p_discount: Boolean(q.discount),
     p_split: MIX_SPLIT,
     p_rule_ops: [...new Set(rules.filter((r) => r.price_from).map((r) => r.operator))],
+    p_price_min: q.priceMin ?? null,
+    p_price_max: q.priceMax ?? null,
+    // дешёвые (до 5000) — в самом конце, если человек сам не ищет по цене
+    p_low: q.priceMin != null || q.priceMax != null ? 0 : LOW_PRICE,
   };
-  const slice = async (sort: string, bucket: "cheap" | "premium" | "request" | null, offset: number, limit: number) => {
+  const slice = async (sort: string, bucket: "cheap" | "premium" | "request" | "low" | null, offset: number, limit: number) => {
     if (limit <= 0) return { items: [] as CatalogItem[], total: -1 };
     const { data, error } = await publicClient().rpc("search_numbers", { ...base, p_sort: sort, p_bucket: bucket, p_limit: limit, p_offset: offset });
     if (error) throw new Error(error.message);
@@ -218,7 +224,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   // своя маска (регулярка) тяжёлая — без смешанной выдачи, одним запросом
   if (sort === "mix" && base.p_regex) sort = "beauty";
   // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
-  const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount;
+  const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount && q.priceMin == null && q.priceMax == null;
   if (sort === "mix" && plain) return recommendedPage(page, pageSize, moscowDay());
   if (sort !== "mix") {
     const r = await slice(sort, null, offset, pageSize);
@@ -227,27 +233,31 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 
   // Смешанная выдача: сначала 5 недорогих (до 30 000 ₽), дальше 3 недорогих на 1 дорогой,
   // номера без цены и без правила цены — в конце
-  const buckets = ["cheap", "premium", "request"] as const;
+  const buckets = ["cheap", "premium", "request", "low"] as const;
   const totals = await Promise.all(buckets.map(async (bk) => Math.max(0, (await slice("beauty", bk, 0, 1)).total)));
-  const plan = planMix(offset, pageSize, totals[0], totals[1], totals[2]);
-  const idx = (k: "A" | "B" | "C") => plan.filter((x) => x[0] === k).map((x) => x[1]);
-  const [ia, ib, ic] = [idx("A"), idx("B"), idx("C")];
-  const [ra, rb, rc] = await Promise.all([
-    ia.length ? slice("beauty", "cheap", ia[0], ia.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
-    ib.length ? slice("beauty", "premium", ib[0], ib.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
-    ic.length ? slice("beauty", "request", ic[0], ic.length) : Promise.resolve({ items: [] as CatalogItem[], total: 0 }),
+  const plan = planMix(offset, pageSize, totals[0], totals[1], totals[2], totals[3]);
+  const idx = (k: "A" | "B" | "C" | "D") => plan.filter((x) => x[0] === k).map((x) => x[1]);
+  const [ia, ib, ic, id] = [idx("A"), idx("B"), idx("C"), idx("D")];
+  const none = Promise.resolve({ items: [] as CatalogItem[], total: 0 });
+  const [ra, rb, rc, rd] = await Promise.all([
+    ia.length ? slice("beauty", "cheap", ia[0], ia.length) : none,
+    ib.length ? slice("beauty", "premium", ib[0], ib.length) : none,
+    ic.length ? slice("beauty", "request", ic[0], ic.length) : none,
+    id.length ? slice("beauty", "low", id[0], id.length) : none,
   ]);
-  const ptr = { A: 0, B: 0, C: 0 };
-  const src = { A: ra.items, B: rb.items, C: rc.items };
+  const ptr = { A: 0, B: 0, C: 0, D: 0 };
+  const src = { A: ra.items, B: rb.items, C: rc.items, D: rd.items };
   const items: CatalogItem[] = [];
   for (const [bk] of plan) {
     const it = src[bk][ptr[bk]++];
     if (it) items.push(it);
   }
-  return { items, total: totals[0] + totals[1] + totals[2], page, pageSize };
+  return { items, total: totals[0] + totals[1] + totals[2] + totals[3], page, pageSize };
 }
 
 const MIX_SPLIT = 30000;
+/** номера дешевле — в самом конце выдачи (кроме поиска по цене) */
+const LOW_PRICE = 5000;
 
 /** Сегодняшняя дата по Москве — ключ ежедневной подборки */
 function moscowDay(): string {
@@ -321,14 +331,14 @@ async function recommendedPage(page: number, pageSize: number, day: string): Pro
 }
 
 /** Раскладка смешанной выдачи: первые 5 — недорогие (A), дальше A,A,A,B…; без цены (C) — после них */
-function planMix(offset: number, size: number, totA: number, totB: number, totC = 0): ["A" | "B" | "C", number][] {
-  const out: ["A" | "B" | "C", number][] = [];
-  const used = { A: 0, B: 0, C: 0 };
-  const tot = { A: totA, B: totB, C: totC };
+function planMix(offset: number, size: number, totA: number, totB: number, totC = 0, totD = 0): ["A" | "B" | "C" | "D", number][] {
+  const out: ["A" | "B" | "C" | "D", number][] = [];
+  const used = { A: 0, B: 0, C: 0, D: 0 };
+  const tot = { A: totA, B: totB, C: totC, D: totD };
   for (let i = 0; i < offset + size; i++) {
     // приоритет недорогим: первые 5 — недорогие, дальше 3 недорогих на 1 дорогой
     const want: "A" | "B" = i < 5 ? "A" : (i - 5) % 4 < 3 ? "A" : "B";
-    const order: ("A" | "B" | "C")[] = want === "A" ? ["A", "B", "C"] : ["B", "A", "C"];
+    const order: ("A" | "B" | "C" | "D")[] = want === "A" ? ["A", "B", "C", "D"] : ["B", "A", "C", "D"];
     const pick = order.find((k) => used[k] < tot[k]);
     if (!pick) break;
     if (i >= offset) out.push([pick, used[pick]]);

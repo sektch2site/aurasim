@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
     region: p.get("region") ?? undefined,
     withPrice: p.get("priced") === "1",
     discount: p.get("discount") === "1",
+    priceMin: num("pmin"),
+    priceMax: num("pmax"),
     sort: (p.get("sort") as CatalogQuery["sort"]) ?? "mix",
     page: num("page") ?? 1,
     pageSize: num("size") ?? 40,
