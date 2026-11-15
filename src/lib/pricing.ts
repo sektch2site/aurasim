@@ -62,6 +62,8 @@ export const PATTERN_PRICES: { name: string; example: string; from: number; to: 
   { name: "ABAB из двух цифр", example: "977 455 45 45", from: 13000, to: 15000, test: (b) => /(\d)(?!\1)(\d)\1\2$/.test(b) && new Set(b).size === 2 },
   // повтор тройки — 901 332 33 23, 901 343 34 33
   { name: "повтор тройки", example: "901 332 33 23", from: 7500, to: 9000, test: (b) => b[0] === b[3] && b[1] === b[4] && b[2] === b[5] && b[3] === b[6] && new Set(b).size === 2 },
+  // зеркальное окончание ABBA — 967 228 25 52, 968 688 75 57
+  { name: "окончание ABBA", example: "967 228 25 52", from: 3000, to: 3000, test: (b) => /(\d)(?!\1)(\d)\2\1$/.test(b) && new Set(b).size >= 3 && !/(\d)\1\1/.test(b) },
   // ровно четыре одинаковых в середине — 969 233 33 20
   { name: "****AAAA**", example: "969 233 33 20", from: 6500, to: 6500, test: (b) => /^(\d)(\d)\2\2\2(\d)/.test(b) && b[0] !== b[1] && b[5] !== b[1] },
 ];

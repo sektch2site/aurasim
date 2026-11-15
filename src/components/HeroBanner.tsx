@@ -20,19 +20,19 @@ export function HeroBanner() {
       <div className="pointer-events-none absolute -right-16 -bottom-24 h-72 w-72 rounded-full bg-aura/25 blur-3xl" />
       <div className="pointer-events-none absolute top-4 right-24 h-40 w-40 rounded-full bg-sky-300/40 blur-2xl" />
 
-      <div className="relative flex items-center gap-3">
+      <div className="relative mx-auto flex max-w-3xl items-center gap-3 sm:justify-between sm:gap-10 sm:px-6">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[1.65rem] leading-[0.95] font-black tracking-tight text-ink italic sm:text-[2.6rem]">
+          <h1 className="font-display text-[1.65rem] leading-[0.95] font-black tracking-tight text-ink italic sm:text-[3.6rem]">
             Красивые
             <br />
             <span className="text-aura">номера</span>
           </h1>
-          <p className="mt-1.5 text-[11px] font-bold text-ink sm:text-sm">Подбери свой идеальный номер</p>
-          <div className="mt-2.5 flex gap-1.5 sm:gap-2">
+          <p className="mt-1.5 text-[11px] font-bold text-ink sm:text-lg">Подбери свой идеальный номер</p>
+          <div className="mt-2.5 flex gap-1.5 sm:mt-4 sm:gap-2.5">
             {chips.map(([label, icon]) => (
               <div
                 key={label}
-                className="flex w-[4.6rem] flex-col items-center gap-1 rounded-xl border border-white bg-white/80 px-1 py-1.5 text-center shadow-sm backdrop-blur sm:w-28 sm:py-2.5"
+                className="flex w-[4.6rem] flex-col sm:w-32 items-center gap-1 rounded-xl border border-white bg-white/80 px-1 py-1.5 text-center shadow-sm backdrop-blur sm:w-28 sm:py-2.5"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4 text-aura sm:h-5 sm:w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   {icon}
@@ -44,7 +44,7 @@ export function HeroBanner() {
         </div>
 
         {/* телефон */}
-        <div className="relative w-[38%] max-w-[13rem] shrink-0 -rotate-[8deg] sm:w-[34%]">
+        <div className="relative w-[32%] max-w-[13rem] shrink-0 -rotate-[8deg] sm:w-44">
           <div className="rounded-[1.7rem] bg-gradient-to-b from-slate-300 to-slate-500 p-[3px] shadow-[0_20px_40px_-10px_rgba(15,40,120,0.55)]">
             <div className="relative aspect-[9/16] overflow-hidden rounded-[1.55rem] bg-gradient-to-b from-[#0b1b4d] via-[#10287a] to-[#081235]">
               <div className="absolute top-1.5 left-1/2 h-2.5 w-10 -translate-x-1/2 rounded-full bg-black/80" />

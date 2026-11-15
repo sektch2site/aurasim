@@ -170,3 +170,66 @@ body {
   background-position: right 12px center;
   padding-right: 34px !important;
 }
+
+/* курсор-рука на всём кликабельном */
+button:not(:disabled),
+[role="button"],
+a[href],
+select,
+label[for],
+summary,
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* лоадер при первой загрузке */
+#aura-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #ffffff, #e3ecff 70%);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+#aura-loader.done {
+  opacity: 0;
+  visibility: hidden;
+}
+.aura-spin {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+}
+.aura-spin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid rgba(29, 78, 216, 0.12);
+  border-top-color: #1d4ed8;
+  animation: aura-rot 0.9s linear infinite;
+}
+.aura-spin img {
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  animation: aura-pulse 1.6s ease-in-out infinite;
+}
+@keyframes aura-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes aura-pulse {
+  50% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+}

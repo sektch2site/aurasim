@@ -92,7 +92,7 @@ const isEmpty = (f: Filters) =>
  */
 export function Catalog({ initial, featured }: { initial: CatalogResult; featured?: React.ReactNode }) {
   const [f, setF] = useState<Filters>(EMPTY);
-  const [cellMode, setCellMode] = useState<"letters" | "digits">("letters");
+  const [cellMode, setCellMode] = useState<"letters" | "digits">("digits");
   const [res, setRes] = useState<{ items: CatalogItem[]; total: number; page: number; searched: boolean }>({
     items: initial.items,
     total: initial.total,

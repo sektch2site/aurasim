@@ -28,6 +28,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className="h-full">
       <body className="flex min-h-full flex-col">
+        <div id="aura-loader" aria-hidden="true" suppressHydrationWarning>
+          <div className="flex flex-col items-center gap-3">
+            <div className="aura-spin">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand.jpg" alt="" />
+            </div>
+            <div className="font-display text-lg font-extrabold text-aura italic">Aura sim</div>
+          </div>
+        </div>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){var h=function(){var l=document.getElementById('aura-loader');if(l)l.classList.add('done')};if(document.readyState==='complete')setTimeout(h,150);else window.addEventListener('load',function(){setTimeout(h,150)});setTimeout(h,4000)})();",
+          }}
+        />
         <FavoritesProvider>
           <BuyProvider settings={settings}>
             <header className="sticky top-0 z-40 border-b border-line/60 bg-white/80 backdrop-blur-md">
