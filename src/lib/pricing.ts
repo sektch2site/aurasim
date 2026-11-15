@@ -54,6 +54,10 @@ export function isFiveStart(id: string): boolean {
  * b — 7 цифр после кода.
  */
 export const PATTERN_PRICES: { name: string; example: string; from: number; to: number; test: (b: string) => boolean }[] = [
+  // ****A0AAAA — 916 370 77 77 (код + любая цифра, затем A0AAAA)
+  { name: "****A0AAAA", example: "916 370 77 77", from: 35000, to: 40000, test: (b) => /^\d([1-9])0\1\1\1\1$/.test(b) },
+  // ***AAA + зеркальное окончание — 969 111 39 93, 994 111 08 80
+  { name: "***AAABCCB", example: "969 111 39 93", from: 6000, to: 7000, test: (b) => /^(\d)\1\1(\d)(?!\2)(\d)\3\2$/.test(b) && b[0] !== b[3] && b[0] !== b[4] },
   // ***AB0ABAB — 985 120 12 12
   { name: "***AB0ABAB", example: "985 120 12 12", from: 10000, to: 10000, test: (b) => /^([1-9])([1-9])0\1\2\1\2$/.test(b) && b[0] !== b[1] },
   // ***AAABCBC — 985 111 58 58
@@ -63,7 +67,7 @@ export const PATTERN_PRICES: { name: string; example: string; from: number; to: 
   // повтор тройки — 901 332 33 23, 901 343 34 33
   { name: "повтор тройки", example: "901 332 33 23", from: 7500, to: 9000, test: (b) => b[0] === b[3] && b[1] === b[4] && b[2] === b[5] && b[3] === b[6] && new Set(b).size === 2 },
   // зеркальное окончание ABBA — 967 228 25 52, 968 688 75 57
-  { name: "окончание ABBA", example: "967 228 25 52", from: 3000, to: 3000, test: (b) => /(\d)(?!\1)(\d)\2\1$/.test(b) && new Set(b).size >= 3 && !/(\d)\1\1/.test(b) },
+  { name: "окончание ABBA", example: "967 228 25 52", from: 1500, to: 1500, test: (b) => /(\d)(?!\1)(\d)\2\1$/.test(b) && new Set(b).size >= 3 && !/(\d)\1\1/.test(b) },
   // ровно четыре одинаковых в середине — 969 233 33 20
   { name: "****AAAA**", example: "969 233 33 20", from: 6500, to: 6500, test: (b) => /^(\d)(\d)\2\2\2(\d)/.test(b) && b[0] !== b[1] && b[5] !== b[1] },
 ];

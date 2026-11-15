@@ -295,7 +295,9 @@ async function recommendedPage(page: number, pageSize: number, day: string): Pro
   };
   const res = await Promise.all(
     FEED_OPS.map(async (op) => {
-      const [c, p] = await Promise.all([slice(op, "cheap", kCheap, 1500), slice(op, "premium", kPrem, 300)]);
+      // только самые красивые: узкое окно сверху по красоте, без дешёвых «проходных» комбинаций
+      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 3, 400), slice(op, "premium", kPrem, 150)]);
+      const c = { ...c0, items: c0.items.filter((x) => x.price.kind !== "fixed" || x.price.price >= 6000).slice(0, kCheap) };
       // у оператора: недорогой, недорогой, дорогой, …
       const q: CatalogItem[] = [];
       const ci = [...c.items];
