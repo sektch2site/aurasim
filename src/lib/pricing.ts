@@ -1,4 +1,11 @@
-import type { PhoneNumber, PriceRule, ResolvedPrice, Settings } from "./types";
+import { matchMask } from "./mask";
+import type { CustomPattern, PhoneNumber, PriceRule, ResolvedPrice, Settings } from "./types";
+
+/** Первая подходящая своя комбинация Ильи (из админки) */
+export function customPatternFor(id: string, settings: Pick<Settings, "custom_patterns">): CustomPattern | null {
+  for (const p of settings.custom_patterns ?? []) if (p.mask?.length === 10 && matchMask(id, p.mask)) return p;
+  return null;
+}
 
 export function roundPrice(v: number, to: number): number {
   const step = to > 0 ? to : 1;
@@ -114,6 +121,11 @@ function spread(n: Pick<PhoneNumber, "id" | "beauty_score">, from: number, to: n
 export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Settings): ResolvedPrice {
   if (n.price_override && n.price_override > 0) {
     return { kind: "fixed", price: n.price_override, old: n.price_old };
+  }
+  // своя комбинация из админки — важнее встроенных правил (кроме выкупных)
+  const cp = !n.partner_price ? customPatternFor(n.id, settings) : null;
+  if (cp && findRule(n, rules)?.price_from) {
+    return { kind: "fixed", price: spread(n, cp.from, Math.max(cp.from, cp.to)), old: null };
   }
   // особые номера (6 одинаковых подряд, 5 одинаковых на конце, ***AAAAABB) — всегда по запросу
   if (isVipPattern(n.id)) return { kind: "request" };

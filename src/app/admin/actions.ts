@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import { analyzeBeauty, groupsFromInput } from "@/lib/beauty";
 import { CATALOG_TAG } from "@/lib/data";
-import { maskTags } from "@/lib/partner";
+import { maskToPgRegex, matchMask } from "@/lib/mask";
+import { maskTags, priceFields } from "@/lib/partner";
 import { serviceClient } from "@/lib/supabase/admin";
 import { getAdmin, sessionClient } from "@/lib/supabase/server";
-import type { Operator, Settings } from "@/lib/types";
+import { DEFAULT_SETTINGS, type Operator, type PhoneNumber, type PriceRule, type Settings } from "@/lib/types";
 
 async function guard() {
   const admin = await getAdmin();
@@ -220,6 +221,77 @@ export async function deleteRule(form: FormData) {
   const db = await guard();
   await db.from("price_rules").delete().eq("id", str(form, "id"));
   done("rules", "Правило удалено");
+}
+
+/* ---------- свои комбинации ---------- */
+
+const RU_LAT: Record<string, string> = { А: "A", В: "B", С: "C", Е: "E", Н: "H", К: "K", М: "M", О: "O", Р: "P", Т: "T", Х: "X" };
+function cleanMask(raw: string): string {
+  const m = raw
+    .toUpperCase()
+    .split("")
+    .map((c) => RU_LAT[c] ?? c)
+    .join("")
+    .replace(/^\+?7(?=.{10}$)/, "")
+    .replace(/[^0-9A-Z*]/g, "");
+  return m.length === 7 ? "***" + m : m;
+}
+
+/** Пересчитать цену и видимость номеров под маской (после добавления/удаления своей комбинации) */
+async function repriceMask(db: DB, mask: string) {
+  const [{ data: rules }, cur, { data: last }] = await Promise.all([
+    db.from("price_rules").select("*"),
+    readSettings(db),
+    db.from("sync_runs").select("id").order("id", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const settings = { ...DEFAULT_SETTINGS, ...cur } as Settings;
+  const lastRun = (last as { id: number } | null)?.id ?? -1;
+  const re = maskToPgRegex(mask);
+  let after = "";
+  let n = 0;
+  for (let i = 0; i < 20; i++) {
+    const { data } = await db.from("numbers").select("*").filter("id", "match", re).gt("id", after).order("id").limit(1000);
+    const rows = ((data as (PhoneNumber & { vip?: boolean; sync_run?: number })[]) ?? []).filter((r) => matchMask(r.id, mask));
+    if (!data?.length) break;
+    after = (data as PhoneNumber[])[data.length - 1].id;
+    const out = rows.map((r) => {
+      const pf = priceFields(r, (rules as PriceRule[]) ?? [], settings);
+      const { vip: _v, ...rest } = r;
+      void _v;
+      // номер есть в партнёрке (последняя синхронизация) — показываем, если он больше не «проходной»
+      const present = r.source !== "partner" || r.sync_run === lastRun;
+      return { ...rest, site_price: pf.site_price, is_active: pf.junk ? false : r.is_active || present };
+    });
+    if (out.length) await db.from("numbers").upsert(out, { onConflict: "id" });
+    n += out.length;
+    if (data.length < 1000) break;
+  }
+  return n;
+}
+
+export async function savePattern(form: FormData) {
+  const db = await guard();
+  const mask = cleanMask(str(form, "mask"));
+  if (mask.length !== 10) fail("rules", "Маска — 10 символов (или 7 после кода): цифры, буквы и *");
+  const from = int(form, "from");
+  const to = int(form, "to") ?? from;
+  if (!from) fail("rules", "Укажите цену «от»");
+  const hl = str(form, "highlight");
+  const cur = await readSettings(db);
+  const list = (cur.custom_patterns ?? []).filter((p) => p.mask !== mask);
+  list.unshift({ mask, from: from!, to: Math.max(from!, to ?? from!), highlight: /^[01]{10}$/.test(hl) && hl.includes("1") ? hl : null });
+  await db.from("settings").upsert({ id: 1, data: { ...cur, custom_patterns: list } });
+  const n = await repriceMask(db, mask);
+  done("rules", `Комбинация ${mask} сохранена, номеров под ней: ${n}`);
+}
+
+export async function deletePattern(form: FormData) {
+  const db = await guard();
+  const mask = str(form, "mask");
+  const cur = await readSettings(db);
+  await db.from("settings").upsert({ id: 1, data: { ...cur, custom_patterns: (cur.custom_patterns ?? []).filter((p) => p.mask !== mask) } });
+  await repriceMask(db, mask);
+  done("rules", `Комбинация ${mask} удалена`);
 }
 
 /* ---------- тарифы ---------- */

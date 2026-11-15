@@ -2,7 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
 import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
-import { findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
+import { customPatternFor, findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
 import { publicClient } from "./supabase/public";
 import {
@@ -53,7 +53,10 @@ export async function getTariffs(): Promise<Tariff[]> {
 function enrich(n: PhoneNumber, rules: PriceRule[], settings: Settings): CatalogItem {
   const rule = findRule(n, rules);
   // подсветку считаем на лету — правила подсветки меняются сразу для всех номеров
-  return { ...n, beauty_mask: n.mask_override && /^[01]{10}$/.test(n.mask_override) ? n.mask_override : analyzeBeauty(n.id).mask, display_groups: settings.display_formats?.[n.id] ?? null, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
+  return { ...n, beauty_mask:
+      n.mask_override && /^[01]{10}$/.test(n.mask_override)
+        ? n.mask_override
+        : customHighlight(n.id, settings) ?? analyzeBeauty(n.id).mask, display_groups: settings.display_formats?.[n.id] ?? null, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
 }
 
 async function byIds(ids: string[]): Promise<PhoneNumber[]> {
@@ -258,6 +261,11 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 const MIX_SPLIT = 30000;
 /** номера дешевле — в самом конце выдачи (кроме поиска по цене) */
 const LOW_PRICE = 5000;
+
+function customHighlight(id: string, settings: Settings): string | null {
+  const h = customPatternFor(id, settings)?.highlight;
+  return h && /^[01]{10}$/.test(h) && h.includes("1") ? h : null;
+}
 
 /** Сегодняшняя дата по Москве — ключ ежедневной подборки */
 function moscowDay(): string {

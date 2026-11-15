@@ -7,9 +7,10 @@ import { formatRub } from "@/lib/pricing";
 import { serviceClient } from "@/lib/supabase/admin";
 import { hasSupabase } from "@/lib/supabase/env";
 import { getAdmin } from "@/lib/supabase/server";
-import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type PhoneNumber, type PriceRule, type Settings } from "@/lib/types";
+import { DEFAULT_SETTINGS, OPERATORS, type Bundle, type CustomPattern, type PhoneNumber, type PriceRule, type Settings } from "@/lib/types";
 import * as A from "./actions";
 import { MaskPicker } from "./MaskPicker";
+import { PatternForm } from "./PatternForm";
 
 export const metadata = { title: "Админка — Aura sim", robots: { index: false } };
 
@@ -258,8 +259,40 @@ async function Bundles() {
 async function Rules() {
   const { data } = await serviceClient().from("price_rules").select("*").order("operator");
   const rows = (data ?? []) as PriceRule[];
+  const { data: st } = await serviceClient().from("settings").select("data").eq("id", 1).maybeSingle();
+  const patterns = ((st?.data as Settings | null)?.custom_patterns ?? []) as CustomPattern[];
   return (
     <>
+      <Card
+        title="Свои комбинации"
+        note="Маска на весь номер (10 символов) или на 7 цифр после кода. Одинаковые буквы = одинаковые цифры, разные буквы = разные, * = любая, цифры — как есть. Цена ставится в диапазоне сама (красивее — дороже). Работает для номеров с тарифом, выкупные не трогает. Своя комбинация важнее встроенных правил."
+      >
+        <PatternForm action={A.savePattern} />
+        {patterns.length > 0 && (
+          <div className="mt-4 grid gap-2">
+            {patterns.map((p) => (
+              <div key={p.mask} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
+                <span className="num text-lg tracking-wider">
+                  {p.mask.split("").map((ch, i) => (
+                    <span key={i} className={p.highlight?.[i] === "1" ? "text-aura" : "text-ink"}>
+                      {ch}
+                      {i === 2 || i === 5 || i === 7 ? " " : ""}
+                    </span>
+                  ))}
+                </span>
+                <span className="font-semibold text-emerald-700">
+                  {p.from.toLocaleString("ru-RU")}
+                  {p.to > p.from ? `–${p.to.toLocaleString("ru-RU")}` : ""} ₽
+                </span>
+                <form action={A.deletePattern} className="ml-auto">
+                  <input type="hidden" name="mask" value={p.mask} />
+                  <button className={ghost}>Удалить</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
       <Card
         title="Правила цен по тарифу"
         note="Для номеров без цены из партнёрки и без ручной цены: оператор + тариф до N ₽/мес → диапазон цены. Берётся правило с самым маленьким подходящим порогом. Если правила нет — на сайте «Запросить цену»."

@@ -1,6 +1,6 @@
 import { analyzeBeauty } from "./beauty";
 import { matchMask, POPULAR_MASKS } from "./mask";
-import { isJunkNumber, resolvePrice } from "./pricing";
+import { customPatternFor, isJunkNumber, resolvePrice } from "./pricing";
 import type { PhoneNumber, PriceRule, Settings } from "./types";
 
 /**
@@ -15,7 +15,7 @@ export function priceFields(
   const p = resolvePrice({ ...(n as PhoneNumber), price_override: null, price_old: null }, rules, settings);
   return {
     site_price: p.kind === "fixed" ? p.price : null,
-    junk: !n.partner_price && isJunkNumber(n.id),
+    junk: !n.partner_price && isJunkNumber(n.id) && !customPatternFor(n.id, settings),
   };
 }
 

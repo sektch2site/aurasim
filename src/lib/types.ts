@@ -92,6 +92,8 @@ export interface Settings {
   display_formats?: Record<string, number[]>;
   /** номера с автоматической скидкой этой недели: id → цена со скидкой */
   auto_sale_ids?: Record<string, number>;
+  /** свои комбинации Ильи: маска (10 символов), цена от–до, какие цифры выделять */
+  custom_patterns?: CustomPattern[];
   /** номера вида ***AAAAA XY (991 222 22 15) — диапазон цены, ₽ */
   five_start_from: number;
   five_start_to: number;
@@ -129,6 +131,15 @@ export type ResolvedPrice =
   | { kind: "fixed"; price: number; old: number | null }
   | { kind: "range"; from: number; to: number }
   | { kind: "request" };
+
+export interface CustomPattern {
+  /** маска на весь номер, 10 символов: цифры, буквы (одинаковые = одинаковые цифры), * = любая */
+  mask: string;
+  from: number;
+  to: number;
+  /** 10 символов '0'/'1' — какие цифры выделять; пусто — автоматически */
+  highlight?: string | null;
+}
 
 export interface CatalogQuery {
   code?: string; // 3 цифры кода или пусто
