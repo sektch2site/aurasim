@@ -16,7 +16,7 @@ export function NumberRow({ n }: { n: CatalogItem }) {
       <div className={`flex items-center gap-2.5 rounded-[14px] px-2.5 py-2 sm:gap-3 sm:px-3.5 ${top ? "bg-gradient-to-r from-[#eaf1ff] to-white" : "bg-white"}`}>
         <OperatorDot op={n.operator} size={26} />
         <div className="min-w-0 flex-1">
-          <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[1.08rem] sm:text-[1.3rem]" />
+          <NumberDisplay id={n.id} mask={n.beauty_mask} fmt={n.display_groups} className="text-[1.08rem] sm:text-[1.3rem]" />
           <div className="mt-0.5 flex items-center gap-2 text-[12px] font-bold">
             {p.kind === "fixed" ? (
               <>

@@ -172,8 +172,50 @@ export function analyzeBeauty(raw: string): BeautyResult {
 }
 
 
-export function formatNumber(id: string): string {
-  return `+7 ${id.slice(0, 3)} ${id.slice(3, 6)} ${id.slice(6, 8)} ${id.slice(8, 10)}`;
+/**
+ * Как разбить номер на группы.
+ * fmt — длины групп, как Илья записал номер в админке (977 107 3333 → [3,3,4]).
+ * Иначе: обычно 3-3-2-2, а пять и больше одинаковых подряд пишутся слитно (901 22222 25).
+ */
+export function numberGroups(id: string, fmt?: number[] | null): [number, number][] {
+  if (fmt && fmt.length && fmt.reduce((a, b) => a + b, 0) === 10 && fmt.every((x) => x > 0)) {
+    const out: [number, number][] = [];
+    let p = 0;
+    for (const len of fmt) out.push([p, (p += len)]);
+    return out;
+  }
+  const m = /(\d)\1{4,}/.exec(id.slice(3));
+  if (m) {
+    const s = 3 + m.index;
+    const e = s + m[0].length;
+    const out: [number, number][] = [[0, 3]];
+    if (s > 3) out.push([3, s]);
+    out.push([s, e]);
+    if (e < 10) out.push([e, 10]);
+    return out;
+  }
+  return [
+    [0, 3],
+    [3, 6],
+    [6, 8],
+    [8, 10],
+  ];
+}
+
+/** Длины групп из того, как номер записан руками: «+7 977 107 3333» → [3,3,4] */
+export function groupsFromInput(raw: string): number[] | null {
+  const parts = raw.replace(/[^\d\s-]/g, " ").trim().split(/[\s-]+/).filter(Boolean);
+  let lens = parts.map((p) => p.length);
+  const total = lens.reduce((a, b) => a + b, 0);
+  // отрезаем +7 / 8 спереди
+  if (total === 11 && lens.length > 1 && /^[78]$/.test(parts[0])) lens = lens.slice(1);
+  else if (total === 11 && /^[78]/.test(parts[0])) lens[0] -= 1;
+  if (lens.reduce((a, b) => a + b, 0) !== 10 || lens.length < 2) return null;
+  return lens;
+}
+
+export function formatNumber(id: string, fmt?: number[] | null): string {
+  return "+7 " + numberGroups(id, fmt).map(([a, b]) => id.slice(a, b)).join(" ");
 }
 
 export function formatNumberDash(id: string): string {

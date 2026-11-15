@@ -17,7 +17,7 @@ export function BundleCard({ b }: { b: BundleView }) {
       <div className="relative mb-3 space-y-1.5">
         {b.items.map((n) => (
           <div key={n.id} className="pill-number-strong rounded-2xl px-2 py-2 text-center">
-            <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[1.2rem]" />
+            <NumberDisplay id={n.id} mask={n.beauty_mask} fmt={n.display_groups} className="text-[1.2rem]" />
           </div>
         ))}
       </div>

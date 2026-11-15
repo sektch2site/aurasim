@@ -28,6 +28,8 @@ export interface PhoneNumber {
   beauty_mask: string;
   /** ручная подсветка из админки (10 символов '0'/'1'), важнее автоматической */
   mask_override?: string | null;
+  /** как разбивать номер на группы (из админки, хранится в настройках) */
+  display_groups?: number[] | null;
   tags: string[];
   is_active: boolean;
   source: "partner" | "manual";
@@ -86,6 +88,10 @@ export interface Settings {
   budget_price_to: number;
   /** номера вида ***X AAAAA Y (977 933 33 34) — фиксированная цена, ₽ */
   five_mid_price: number;
+  /** как Илья записал номер в админке: id → длины групп */
+  display_formats?: Record<string, number[]>;
+  /** номера с автоматической скидкой этой недели: id → цена со скидкой */
+  auto_sale_ids?: Record<string, number>;
   /** номера вида ***AAAAA XY (991 222 22 15) — диапазон цены, ₽ */
   five_start_from: number;
   five_start_to: number;

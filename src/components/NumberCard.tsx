@@ -25,7 +25,7 @@ export function NumberCard({ n, delay = 0 }: { n: CatalogItem; delay?: number })
       </div>
 
       <div className="pill-number-strong relative rounded-xl px-1 py-1.5 text-center sm:rounded-2xl sm:py-2.5">
-        <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[0.86rem] sm:text-[1.25rem]" dim="text-ink" />
+        <NumberDisplay id={n.id} mask={n.beauty_mask} fmt={n.display_groups} className="text-[0.86rem] sm:text-[1.25rem]" dim="text-ink" />
       </div>
 
       <div className="relative mt-2 flex flex-wrap items-end justify-between gap-x-2 gap-y-1.5">

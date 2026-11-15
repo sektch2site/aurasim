@@ -18,7 +18,7 @@ export function useBuy() {
 }
 
 function message(i: BuyIntent, extra: string, price: number): string {
-  const list = "numbers" in i ? i.numbers.map(formatNumber).join(", ") : "";
+  const list = "numbers" in i ? i.numbers.map((x) => formatNumber(x)).join(", ") : "";
   switch (i.kind) {
     case "buy":
       return i.numbers.length > 1 ? `Хочу приобрести ${i.label ?? "номера"}: ${list}` : `Хочу приобрести номер ${list}`;

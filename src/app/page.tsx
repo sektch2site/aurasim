@@ -1,5 +1,6 @@
 import { PublishButton, VideoButton } from "@/components/Actions";
 import { Catalog } from "@/components/Catalog";
+import { HeroBanner } from "@/components/HeroBanner";
 import { Features } from "@/components/Icons";
 import { NumberCard } from "@/components/NumberCard";
 import { getFeatured, getSettings, getTopNumbers } from "@/lib/data";
@@ -17,6 +18,8 @@ export default async function Home() {
         </div>
         <Features compact />
       </div>
+
+      <HeroBanner />
 
       <div id="numbers">
         <Catalog

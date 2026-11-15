@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
-import { analyzeBeauty } from "@/lib/beauty";
+import { analyzeBeauty, groupsFromInput } from "@/lib/beauty";
 import { CATALOG_TAG } from "@/lib/data";
 import { maskTags } from "@/lib/partner";
 import { serviceClient } from "@/lib/supabase/admin";
@@ -21,6 +21,25 @@ const int = (f: FormData, k: string) => {
   return v ? Number(v) : null;
 };
 const phone = (v: string) => v.replace(/\D/g, "").slice(-10);
+
+type DB = ReturnType<typeof serviceClient>;
+
+async function readSettings(db: DB): Promise<Partial<Settings>> {
+  const { data } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
+  return ((data?.data as Partial<Settings>) ?? {}) as Partial<Settings>;
+}
+
+/** Запоминаем, как Илья записал номер (977 107 3333), чтобы на сайте он выглядел так же */
+async function rememberFormats(db: DB, raws: string[]) {
+  const entries = raws
+    .map((raw) => [phone(raw), groupsFromInput(raw)] as const)
+    .filter(([id, g]) => id.length === 10 && g);
+  if (!entries.length) return;
+  const cur = await readSettings(db);
+  const display_formats = { ...(cur.display_formats ?? {}) };
+  for (const [id, g] of entries) display_formats[id] = g!;
+  await db.from("settings").upsert({ id: 1, data: { ...cur, display_formats } });
+}
 
 function done(tab: string, msg: string): never {
   updateTag(CATALOG_TAG);
@@ -57,6 +76,7 @@ export async function saveNumber(form: FormData) {
   const db = await guard();
   const id = phone(str(form, "id"));
   if (id.length !== 10) fail("numbers", "Номер должен содержать 10 цифр после +7");
+  await rememberFormats(db, [str(form, "id")]);
   const b = analyzeBeauty(id);
   const { data: existing } = await db.from("numbers").select("id").eq("id", id).maybeSingle();
   const patch = {
@@ -100,11 +120,10 @@ export async function toggleNumber(form: FormData) {
 
 export async function addFeatured(form: FormData) {
   const db = await guard();
-  const ids = str(form, "ids")
-    .split(/[\n,;]+/)
-    .map(phone)
-    .filter((x) => x.length === 10);
+  const raws = str(form, "ids").split(/[\n,;]+/);
+  const ids = [...new Set(raws.map(phone).filter((x) => x.length === 10))];
   if (!ids.length) fail("featured", "Не нашёл ни одного номера");
+  await rememberFormats(db, raws);
   const { data: exist } = await db.from("numbers").select("id").in("id", ids);
   const known = new Set((exist ?? []).map((r) => r.id as string));
   const missing = ids.filter((i) => !known.has(i));
@@ -116,8 +135,9 @@ export async function addFeatured(form: FormData) {
       }),
     );
   }
-  const { data: maxRow } = await db.from("featured").select("position").order("position", { ascending: false }).limit(1).maybeSingle();
-  let pos = (maxRow?.position ?? 0) + 1;
+  // новые номера встают в начало подборки, в том порядке, в каком их ввели
+  const { data: minRow } = await db.from("featured").select("position").order("position", { ascending: true }).limit(1).maybeSingle();
+  let pos = (minRow?.position ?? 0) - ids.length;
   const { error } = await db.from("featured").upsert(ids.map((id) => ({ number_id: id, position: pos++ })));
   if (error) fail("featured", error.message);
   done("featured", `Добавлено в подборку: ${ids.length}`);
@@ -231,6 +251,7 @@ export async function deleteTariff(form: FormData) {
 export async function saveSettings(form: FormData) {
   const db = await guard();
   const data: Partial<Settings> = {
+    ...(await readSettings(db)),
     telegram: str(form, "telegram").replace(/^@/, ""),
     whatsapp: str(form, "whatsapp"),
     max: str(form, "max"),

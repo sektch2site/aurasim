@@ -55,13 +55,26 @@ function priceText(n: CatalogItem) {
 }
 const PAGE = 30;
 
+// русские буквы, похожие на латинские, — в латиницу (А → A)
+const RU_LAT: Record<string, string> = { А: "A", В: "B", С: "C", Е: "E", Н: "H", К: "K", М: "M", О: "O", Р: "P", Т: "T", Х: "X" };
+function cellChar(v: string, mode: "letters" | "digits"): string {
+  const ch = v.slice(-1).toUpperCase();
+  const c = RU_LAT[ch] ?? ch;
+  if (/\d/.test(c)) return c;
+  if (mode === "letters" && /[A-Z]/.test(c)) return c;
+  return "";
+}
+
 function toParams(f: Filters, page: number) {
   const p = new URLSearchParams();
   if (f.code) p.set("code", f.code);
-  if (f.digits.some(Boolean)) p.set("d", f.digits.map((d) => d || "_").join(""));
+  const lettered = f.digits.some((d) => /[A-Z]/.test(d));
+  // в ячейках есть буквы — это своя маска (***AAB*ABB), иначе обычный поиск по цифрам
+  if (lettered) p.set("mask", (f.code || "***") + f.digits.map((d) => d || "*").join(""));
+  else if (f.digits.some(Boolean)) p.set("d", f.digits.map((d) => d || "_").join(""));
   if (f.q) p.set("q", f.q);
   if (f.ops.length) p.set("ops", f.ops.join(","));
-  if (f.mask) p.set("mask", f.mask);
+  if (f.mask && !lettered) p.set("mask", f.mask);
   if (f.priced) p.set("priced", "1");
   if (f.discount) p.set("discount", "1");
   p.set("sort", f.sort);
@@ -79,6 +92,7 @@ const isEmpty = (f: Filters) =>
  */
 export function Catalog({ initial, featured }: { initial: CatalogResult; featured?: React.ReactNode }) {
   const [f, setF] = useState<Filters>(EMPTY);
+  const [cellMode, setCellMode] = useState<"letters" | "digits">("letters");
   const [res, setRes] = useState<{ items: CatalogItem[]; total: number; page: number; searched: boolean }>({
     items: initial.items,
     total: initial.total,
@@ -96,7 +110,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
   };
 
   const copyNumbers = async () => {
-    const text = res.items.map((n) => `${formatNumber(n.id)} — ${priceText(n)}`).join("\n");
+    const text = res.items.map((n) => `${formatNumber(n.id, n.display_groups)} — ${priceText(n)}`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       flash(`Скопировано: ${res.items.length} номеров`);
@@ -113,7 +127,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
       all.push(...(r.items ?? []));
       if (!r.items?.length || all.length >= r.total) break;
     }
-    const rows = [["Номер", "Оператор", "Цена", "Регион"], ...all.map((n) => [formatNumber(n.id), n.operator, priceText(n), n.region ?? ""])];
+    const rows = [["Номер", "Оператор", "Цена", "Регион"], ...all.map((n) => [formatNumber(n.id, n.display_groups), n.operator, priceText(n), n.region ?? ""])];
     const csv = "\ufeff" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -155,7 +169,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
   };
 
   const onDigit = (i: number, v: string) => {
-    const d = v.replace(/\D/g, "").slice(-1);
+    const d = cellChar(v, cellMode);
     setF((s) => {
       const digits = [...s.digits];
       digits[i] = d;
@@ -185,6 +199,27 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
           </button>
         </div>
 
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-[11px] leading-tight text-mute">
+            {cellMode === "letters" ? "Буквы — маска: одинаковые буквы = одинаковые цифры (A A B → 7 7 1)" : "Цифры — точное место цифры в номере"}
+          </p>
+          <div className="flex shrink-0 rounded-full border border-line bg-white p-0.5 text-xs font-bold">
+            {(["letters", "digits"] as const).map((m) => (
+              <button
+                type="button"
+                key={m}
+                onClick={() => {
+                  setCellMode(m);
+                  if (m === "digits") setF((s) => ({ ...s, digits: s.digits.map((d) => (/\d/.test(d) ? d : "")) }));
+                }}
+                className={`rounded-full px-2.5 py-1 transition ${cellMode === m ? "bg-aura text-white" : "text-ink-soft"}`}
+              >
+                {m === "letters" ? "Буквы" : "Цифры"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="mb-2 flex items-center gap-1.5 sm:gap-2">
           <select
             aria-label="Код"
@@ -206,14 +241,19 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
                   ref={(el) => {
                     boxes.current[i] = el;
                   }}
-                  inputMode="numeric"
+                  inputMode={cellMode === "digits" ? "numeric" : "text"}
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={cellMode === "letters" ? "*" : ""}
                   aria-label={`Цифра ${i + 4}`}
                   value={d}
                   onChange={(e) => onDigit(i, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !d && i > 0) boxes.current[i - 1]?.focus();
                   }}
-                  className={box}
+                  className={`${box} placeholder:text-line`}
                 />
               </Cell>
             ))}

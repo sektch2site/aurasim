@@ -1,3 +1,4 @@
+import { numberGroups } from "@/lib/beauty";
 import { OPERATOR_LOGOS, OPERATORS, type Operator } from "@/lib/types";
 
 /** +7 961 044 40 04 — красивые цифры подсвечены синим */
@@ -6,18 +7,16 @@ export function NumberDisplay({
   mask,
   className = "",
   dim = "text-ink",
+  fmt,
 }: {
   id: string;
   mask: string;
   className?: string;
   dim?: string;
+  /** длины групп, как номер записан в админке */
+  fmt?: number[] | null;
 }) {
-  const groups: [number, number][] = [
-    [0, 3],
-    [3, 6],
-    [6, 8],
-    [8, 10],
-  ];
+  const groups = numberGroups(id, fmt);
   return (
     <span className={`num inline-flex items-baseline gap-[0.28em] whitespace-nowrap ${className}`} aria-label={`+7 ${id}`}>
       <span className={dim}>+7</span>

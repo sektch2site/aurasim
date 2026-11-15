@@ -49,6 +49,36 @@ export function isFiveStart(id: string): boolean {
   return !!m && m[2] !== m[1] && m[3] !== m[1] && m[2] !== m[3];
 }
 
+/**
+ * Комбинации с отдельной ценой (по просьбе Ильи). Проверяются по порядку, первая подходящая побеждает.
+ * b — 7 цифр после кода.
+ */
+export const PATTERN_PRICES: { name: string; example: string; from: number; to: number; test: (b: string) => boolean }[] = [
+  // ***AB0ABAB — 985 120 12 12
+  { name: "***AB0ABAB", example: "985 120 12 12", from: 10000, to: 10000, test: (b) => /^([1-9])([1-9])0\1\2\1\2$/.test(b) && b[0] !== b[1] },
+  // ***AAABCBC — 985 111 58 58
+  { name: "***AAABCBC", example: "985 111 58 58", from: 10000, to: 13000, test: (b) => /^(\d)\1\1(\d)(\d)\2\3$/.test(b) && b[3] !== b[4] && b[0] !== b[3] && b[0] !== b[4] },
+  // окончание ABAB и после кода только две цифры — 977 455 45 45
+  { name: "ABAB из двух цифр", example: "977 455 45 45", from: 13000, to: 15000, test: (b) => /(\d)(?!\1)(\d)\1\2$/.test(b) && new Set(b).size === 2 },
+  // повтор тройки — 901 332 33 23, 901 343 34 33
+  { name: "повтор тройки", example: "901 332 33 23", from: 7500, to: 9000, test: (b) => b[0] === b[3] && b[1] === b[4] && b[2] === b[5] && b[3] === b[6] && new Set(b).size === 2 },
+  // ровно четыре одинаковых в середине — 969 233 33 20
+  { name: "****AAAA**", example: "969 233 33 20", from: 6500, to: 6500, test: (b) => /^(\d)(\d)\2\2\2(\d)/.test(b) && b[0] !== b[1] && b[5] !== b[1] },
+];
+
+export function patternPrice(id: string): { from: number; to: number } | null {
+  const b = id.slice(3);
+  const p = PATTERN_PRICES.find((x) => x.test(b));
+  return p ? { from: p.from, to: p.to } : null;
+}
+
+/** Цена в диапазоне с шагом 500 ₽ — разная у разных номеров, чтобы список не выглядел «под копирку» */
+function spread(n: Pick<PhoneNumber, "id" | "beauty_score">, from: number, to: number): number {
+  if (to <= from) return from;
+  const t = Math.min(1, Math.max(0, 0.4 * (n.beauty_score / 100) + 0.6 * seed(n.id)));
+  return Math.round((from + (to - from) * t) / 500) * 500;
+}
+
 export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Settings): ResolvedPrice {
   if (n.price_override && n.price_override > 0) {
     return { kind: "fixed", price: n.price_override, old: n.price_old };
@@ -67,11 +97,13 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   }
   if (rule && rule.price_from && isFiveStart(n.id)) {
     const from = settings.five_start_from || 10000;
-    return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.five_start_to || 15000)), old: null };
+    return { kind: "fixed", price: spread(n, from, Math.max(from, settings.five_start_to || 15000)), old: null };
   }
+  const pp = rule && rule.price_from ? patternPrice(n.id) : null;
+  if (pp) return { kind: "fixed", price: spread(n, pp.from, pp.to), old: null };
   if (rule && rule.price_from && isBudgetPattern(n.id)) {
     const from = settings.budget_price_from || 5000;
-    return { kind: "fixed", price: priceInRange(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };
+    return { kind: "fixed", price: spread(n, from, Math.max(from, settings.budget_price_to || 7000)), old: null };
   }
   if (rule && rule.price_from) {
     const base = priceInRange(n, rule.price_from, rule.price_to ?? rule.price_from);

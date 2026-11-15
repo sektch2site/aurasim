@@ -22,7 +22,7 @@ export function NumberTile({ n }: { n: CatalogItem }) {
             <HeartButton id={n.id} className="h-7 w-7 [&>svg]:h-4 [&>svg]:w-4" />
           </div>
         </div>
-        <NumberDisplay id={n.id} mask={n.beauty_mask} className="text-[0.98rem] sm:text-[1.15rem]" />
+        <NumberDisplay id={n.id} mask={n.beauty_mask} fmt={n.display_groups} className="text-[0.98rem] sm:text-[1.15rem]" />
         <div className="mt-1 mb-2 min-h-9 text-[12px] leading-tight font-bold">
           {p.kind === "fixed" ? (
             <>

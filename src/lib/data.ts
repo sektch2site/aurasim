@@ -53,7 +53,7 @@ export async function getTariffs(): Promise<Tariff[]> {
 function enrich(n: PhoneNumber, rules: PriceRule[], settings: Settings): CatalogItem {
   const rule = findRule(n, rules);
   // подсветку считаем на лету — правила подсветки меняются сразу для всех номеров
-  return { ...n, beauty_mask: n.mask_override && /^[01]{10}$/.test(n.mask_override) ? n.mask_override : analyzeBeauty(n.id).mask, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
+  return { ...n, beauty_mask: n.mask_override && /^[01]{10}$/.test(n.mask_override) ? n.mask_override : analyzeBeauty(n.id).mask, display_groups: settings.display_formats?.[n.id] ?? null, price: resolvePrice(n, rules, settings), tariff_note: rule?.tariff_note ?? null };
 }
 
 async function byIds(ids: string[]): Promise<PhoneNumber[]> {
@@ -213,8 +213,13 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     return { items, total: rows.length ? Number(rows[0].total) : -1 };
   };
 
-  const sort = q.sort ?? "mix";
+  let sort = q.sort ?? "mix";
   const offset = (page - 1) * pageSize;
+  // своя маска (регулярка) тяжёлая — без смешанной выдачи, одним запросом
+  if (sort === "mix" && base.p_regex) sort = "beauty";
+  // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
+  const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount;
+  if (sort === "mix" && plain) return recommendedPage(page, pageSize, moscowDay());
   if (sort !== "mix") {
     const r = await slice(sort, null, offset, pageSize);
     return { items: r.items, total: Math.max(0, r.total), page, pageSize };
@@ -243,6 +248,75 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 }
 
 const MIX_SPLIT = 30000;
+
+/** Сегодняшняя дата по Москве — ключ ежедневной подборки */
+function moscowDay(): string {
+  return new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return h >>> 0;
+}
+
+const FEED_OPS = ["beeline", "megafon", "mts", "yota", "t2"] as const;
+
+/**
+ * «Рекомендуем»: каждый день новая выборка. На странице — номера всех операторов вперемешку
+ * и разных ценовых категорий: на каждого оператора 4 недорогих (до 30 тыс.) и 2 дорогих.
+ */
+async function recommendedPage(page: number, pageSize: number, day: string): Promise<CatalogResult> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(CATALOG_TAG);
+  const [rules, settings] = await Promise.all([getRules(), getSettings()]);
+  const perOp = Math.max(1, Math.ceil(pageSize / FEED_OPS.length));
+  const kCheap = Math.ceil((perOp * 2) / 3);
+  const kPrem = perOp - kCheap;
+  const base = {
+    p_like: null, p_regex: null, p_mask_tag: null, p_q: null, p_tariff_min: null, p_tariff_max: null, p_region: null,
+    p_with_price: false, p_discount: false, p_split: MIX_SPLIT,
+    p_rule_ops: [...new Set(rules.filter((r) => r.price_from).map((r) => r.operator))],
+  };
+  const slice = async (op: string, bucket: "cheap" | "premium", k: number, window: number) => {
+    const start = hashStr(`${day}:${op}:${bucket}`) % window;
+    const off = start + (page - 1) * k;
+    const call = (o: number) =>
+      publicClient().rpc("search_numbers", { ...base, p_operators: [op], p_sort: "beauty", p_bucket: bucket, p_limit: k, p_offset: o });
+    let { data } = await call(off);
+    let rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+    if (!rows.length && off > 0) {
+      // у оператора меньше номеров, чем окно — берём с начала
+      ({ data } = await call((page - 1) * k));
+      rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+    }
+    return { items: rows.map((r) => enrich(r.row_data, rules, settings)), total: rows.length ? Number(rows[0].total) : 0 };
+  };
+  const res = await Promise.all(
+    FEED_OPS.map(async (op) => {
+      const [c, p] = await Promise.all([slice(op, "cheap", kCheap, 1500), slice(op, "premium", kPrem, 300)]);
+      // у оператора: недорогой, недорогой, дорогой, …
+      const q: CatalogItem[] = [];
+      const ci = [...c.items];
+      const pi = [...p.items];
+      while (ci.length || pi.length) {
+        if (ci.length) q.push(ci.shift()!);
+        if (ci.length) q.push(ci.shift()!);
+        if (pi.length) q.push(pi.shift()!);
+      }
+      return { q, total: c.total + p.total };
+    }),
+  );
+  // операторы по кругу, порядок операторов свой на каждый день
+  const order = [...res].sort((a, b) => hashStr(day + a.q[0]?.id) - hashStr(day + b.q[0]?.id));
+  const items: CatalogItem[] = [];
+  for (let r = 0; items.length < pageSize && order.some((o) => o.q.length); r++) {
+    for (const o of order) if (o.q.length && items.length < pageSize) items.push(o.q.shift()!);
+  }
+  const total = res.reduce((a, b) => a + b.total, 0);
+  return { items, total, page, pageSize };
+}
 
 /** Раскладка смешанной выдачи: первые 5 — недорогие (A), дальше A,A,A,B…; без цены (C) — после них */
 function planMix(offset: number, size: number, totA: number, totB: number, totC = 0): ["A" | "B" | "C", number][] {
