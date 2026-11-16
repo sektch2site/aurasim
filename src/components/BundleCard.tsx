@@ -8,6 +8,10 @@ import { NumberDisplay } from "./NumberDisplay";
 export function BundleCard({ b }: { b: BundleView }) {
   const open = useBuy();
   const word = b.kind === "trio" ? "тройку" : "пару";
+  // у пары/тройки выделение одно на всех: одинаковые 7 цифр после кода — выделяем их целиком,
+  // иначе берём выделение первого номера
+  const sameBody = b.items.length > 1 && b.items.every((n) => n.id.slice(3) === b.items[0].id.slice(3));
+  const groupMask = sameBody ? "0001111111" : (b.items[0]?.beauty_mask ?? "0".repeat(10));
   return (
     <article className="aura-card relative flex flex-col overflow-hidden rounded-[26px] p-4 text-white">
       <div className="relative mb-3 text-center">
@@ -17,7 +21,7 @@ export function BundleCard({ b }: { b: BundleView }) {
       <div className="relative mb-3 space-y-1.5">
         {b.items.map((n) => (
           <div key={n.id} className="pill-number-strong rounded-2xl px-2 py-2 text-center">
-            <NumberDisplay id={n.id} mask={n.beauty_mask} fmt={n.display_groups} className="text-[1.2rem]" />
+            <NumberDisplay id={n.id} mask={groupMask} fmt={b.items[0]?.display_groups} className="text-[1.2rem]" />
           </div>
         ))}
       </div>
