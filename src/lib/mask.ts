@@ -79,3 +79,36 @@ export function matchLike(id: string, like: string): boolean {
   for (let i = 0; i < 10; i++) if (like[i] !== "_" && like[i] !== id[i]) return false;
   return true;
 }
+
+/**
+ * Маска → условия для базы без регулярок (быстро на 400+ тыс. номеров):
+ * like — известные цифры, eq — позиции с одной буквой равны, neq — разные буквы различны
+ * (и буква не равна цифре, написанной в маске явно: "i:=d"). Позиции с 1.
+ */
+export function maskConstraints(rawMask: string): { like: string | null; eq: string[]; neq: string[] } {
+  const mask = normalizeMask(rawMask);
+  const first = new Map<string, number>();
+  const eq: string[] = [];
+  const digits = new Set<string>();
+  let like = "";
+  for (let i = 0; i < 10; i++) {
+    const ch = mask[i];
+    if (/\d/.test(ch)) {
+      like += ch;
+      digits.add(ch);
+    } else {
+      like += "_";
+      if (/[A-Z]/.test(ch)) {
+        if (first.has(ch)) eq.push(`${first.get(ch)! + 1}:${i + 1}`);
+        else first.set(ch, i);
+      }
+    }
+  }
+  const letters = [...first.entries()];
+  const neq: string[] = [];
+  for (let a = 0; a < letters.length; a++) {
+    for (let b = a + 1; b < letters.length; b++) neq.push(`${letters[a][1] + 1}:${letters[b][1] + 1}`);
+    for (const d of digits) neq.push(`${letters[a][1] + 1}:=${d}`);
+  }
+  return { like: /\d/.test(like) ? like : null, eq, neq };
+}

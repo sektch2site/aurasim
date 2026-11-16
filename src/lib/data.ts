@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
-import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, TAGGED_MASKS } from "./mask";
+import { digitsToLike, maskConstraints, matchLike, matchMask, normalizeMask, TAGGED_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
 import { customPatternFor, findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
@@ -193,9 +193,13 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
   }
 
+  // своя маска (не из тегированных) — условиями на позиции, без медленных регулярок
+  const mc = q.mask && !TAGGED_MASKS.includes(normalizeMask(q.mask)) ? maskConstraints(q.mask) : null;
   const base = {
-    p_like: like,
-    p_regex: q.mask && !TAGGED_MASKS.includes(normalizeMask(q.mask)) ? maskToPgRegex(q.mask) : null,
+    p_like: mc ? (mc.like ?? like) : like,
+    p_eq: mc?.eq.length ? mc.eq : null,
+    p_neq: mc?.neq.length ? mc.neq : null,
+    p_regex: null as string | null,
     p_mask_tag: q.mask && TAGGED_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
     p_q: free ?? null,
     p_operators: q.operators?.length ? q.operators : null,
@@ -225,7 +229,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   let sort = q.sort ?? "mix";
   const offset = (page - 1) * pageSize;
   // своя маска (регулярка) тяжёлая — без смешанной выдачи, одним запросом
-  if (sort === "mix" && base.p_regex) sort = "beauty";
+  if (sort === "mix" && mc) sort = "beauty";
   // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
   const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount && q.priceMin == null && q.priceMax == null;
   if ((sort === "mix" || sort === "new") && plain) return recommendedPage(page, pageSize, moscowDay(), sort);
@@ -358,7 +362,9 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     // строго: новый рисунок, не больше 2 номеров с одним кодом, не два номера с одинаковым началом (901 34…)
     const fits = (x: CatalogItem) =>
       !seenBody.has(x.id.slice(3)) &&
-      (!strict || (!seenShape.has(shapeOf(x.id)) && (perCode.get(x.id.slice(0, 3)) ?? 0) < 2 && !seenPrefix.has(x.id.slice(0, 5))));
+      (!strict || (!seenShape.has(shapeOf(x.id)) && (perCode.get(x.id.slice(0, 3)) ?? 0) < 2 && !seenPrefix.has(x.id.slice(0, 5)) &&
+        // один и тот же код — не ближе чем через 10 номеров, похожий хвост — тоже
+        !items.slice(-10).some((y) => y.id.slice(0, 3) === x.id.slice(0, 3) || shapeOf(y.id).slice(3) === shapeOf(x.id).slice(3))));
     const idx = q.map((x, i) => (fits(x) ? i : -1)).filter((i) => i >= 0);
     if (!idx.length) return null;
     // не подряд по красоте, а вразброс
