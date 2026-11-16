@@ -336,18 +336,30 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
   };
   const OVER = 8;
   const fetchSrc = async (src: FeedSrc) => {
-    const k = need[src] * OVER;
-    if (!k) return { items: [] as CatalogItem[], total: 0 };
+    const want = need[src] * OVER;
+    if (!want) return { items: [] as CatalogItem[], total: 0 };
+    // несколько случайных окон, чтобы не брать «пачку» похожих номеров подряд
+    const parts = src === "mid" || src === "high" || src === "low" ? 3 : 1;
+    const k = Math.ceil(want / parts);
     const call = (o: number) =>
       publicClient().rpc("search_numbers", { ...base, p_regex: null, p_price_min: null, p_price_max: null, p_bucket: null, ...SRC[src].args, p_sort: mode === "new" ? "new" : "beauty", p_limit: k, p_offset: o });
-    const start = hashStr(`${day}:${src}:${mode}`) % SRC[src].window;
-    let { data } = await call(start + (page - 1) * k);
-    let rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
-    if (!rows.length) {
-      ({ data } = await call((page - 1) * k));
-      rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
-    }
-    return { items: rows.map((r) => enrich(r.row_data, rules, settings)).filter(SRC[src].ok), total: rows.length ? Number(rows[0].total) : 0 };
+    const res = await Promise.all(
+      Array.from({ length: parts }, async (_, j) => {
+        const start = hashStr(`${day}:${src}:${mode}:${j}`) % SRC[src].window;
+        let { data } = await call(start + (page - 1) * k);
+        let rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+        if (!rows.length) {
+          ({ data } = await call((page - 1) * k + j * k));
+          rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
+        }
+        return rows;
+      }),
+    );
+    const rows = res.flat();
+    const items = [...new Map(rows.map((r) => [r.row_data.id, enrich(r.row_data, rules, settings)])).values()]
+      .filter(SRC[src].ok)
+      .sort((a, b) => hashStr(day + a.id) - hashStr(day + b.id));
+    return { items, total: rows.length ? Number(rows[0].total) : 0 };
   };
   const srcs = Object.keys(need) as FeedSrc[];
   const got = Object.fromEntries(await Promise.all(srcs.map(async (s) => [s, await fetchSrc(s)] as const))) as Record<FeedSrc, { items: CatalogItem[]; total: number }>;
@@ -360,15 +372,17 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
   const takeFrom = (s: FeedSrc, strict: boolean): CatalogItem | null => {
     const q = queue[s];
     // строго: новый рисунок, не больше 2 номеров с одним кодом, не два номера с одинаковым началом (901 34…)
+    const near = (x: CatalogItem) => items.slice(-6).some((y) => y.id.slice(0, 3) === x.id.slice(0, 3));
     const fits = (x: CatalogItem) =>
       !seenBody.has(x.id.slice(3)) &&
+      !near(x) &&
       (!strict || (!seenShape.has(shapeOf(x.id)) && (perCode.get(x.id.slice(0, 3)) ?? 0) < 2 && !seenPrefix.has(x.id.slice(0, 5)) &&
         // один и тот же код — не ближе чем через 10 номеров, похожий хвост — тоже
         !items.slice(-10).some((y) => y.id.slice(0, 3) === x.id.slice(0, 3) || shapeOf(y.id).slice(3) === shapeOf(x.id).slice(3))));
     const idx = q.map((x, i) => (fits(x) ? i : -1)).filter((i) => i >= 0);
     if (!idx.length) return null;
     // не подряд по красоте, а вразброс
-    const i = idx[hashStr(`${day}:${s}:${items.length}`) % Math.min(idx.length, 6)];
+    const i = idx[0];
     const [x] = q.splice(i, 1);
     seenBody.add(x.id.slice(3));
     seenShape.add(shapeOf(x.id));
@@ -382,8 +396,8 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     const want = FEED_CYCLE[i % FEED_CYCLE.length];
     const x =
       takeFrom(want, true) ??
-      takeFrom(want, false) ??
       fallback.map((s) => takeFrom(s, true)).find(Boolean) ??
+      takeFrom(want, false) ??
       fallback.map((s) => takeFrom(s, false)).find(Boolean) ??
       null;
     if (!x) break;
