@@ -228,7 +228,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   if (sort === "mix" && base.p_regex) sort = "beauty";
   // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
   const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount && q.priceMin == null && q.priceMax == null;
-  if (sort === "mix" && plain) return recommendedPage(page, pageSize, moscowDay());
+  if ((sort === "mix" || sort === "new") && plain) return recommendedPage(page, pageSize, moscowDay(), sort);
   if (sort !== "mix") {
     const r = await slice(sort, null, offset, pageSize);
     return { items: r.items, total: Math.max(0, r.total), page, pageSize };
@@ -297,75 +297,83 @@ function shapeOf(id: string): string {
     .join("");
 }
 
-const FEED_OPS = ["beeline", "megafon", "mts", "yota", "t2"] as const;
+/** ***ABABAB X — приоритетная комбинация Ильи (915 56 56 56 0) */
+export const RE_ABABABX = "^[0-9]{3}([0-9])([0-9])\\1\\2\\1\\2[0-9]$";
+
+type FeedSrc = "special" | "mid" | "high" | "low" | "exp" | "req";
+/**
+ * Раскладка 10 мест: дорогой — каждый 4-й, приоритетная комбинация открывает десяток,
+ * дальше вперемешку 6–15 тыс., 15–40 тыс. и недорогие.
+ */
+const FEED_CYCLE: FeedSrc[] = ["special", "mid", "high", "exp", "mid", "low", "high", "req", "mid", "high"];
 
 /**
- * «Рекомендуем»: каждый день новая выборка. На странице — номера всех операторов вперемешку
- * и разных ценовых категорий: на каждого оператора 4 недорогих (до 30 тыс.) и 2 дорогих.
+ * «Рекомендуем» и «Новые» без фильтров: каждый день новая выборка, сильный разброс —
+ * разные комбинации (без повторов рисунка), операторы, цены от 1 500 до 100+ тыс. и «по запросу».
  */
-async function recommendedPage(page: number, pageSize: number, day: string): Promise<CatalogResult> {
+async function recommendedPage(page: number, pageSize: number, day: string, mode: "mix" | "new" = "mix"): Promise<CatalogResult> {
   "use cache";
   cacheLife("hours");
   cacheTag(CATALOG_TAG);
   const [rules, settings] = await Promise.all([getRules(), getSettings()]);
-  const perOp = Math.max(1, Math.ceil(pageSize / FEED_OPS.length));
-  const kCheap = Math.ceil((perOp * 2) / 3);
-  const kPrem = perOp - kCheap;
+  const need: Record<FeedSrc, number> = { special: 0, mid: 0, high: 0, low: 0, exp: 0, req: 0 };
+  for (let i = 0; i < pageSize; i++) need[FEED_CYCLE[i % FEED_CYCLE.length]]++;
   const base = {
-    p_like: null, p_regex: null, p_mask_tag: null, p_q: null, p_tariff_min: null, p_tariff_max: null, p_region: null,
-    p_with_price: false, p_discount: false, p_split: MIX_SPLIT,
-    p_rule_ops: [...new Set(rules.filter((r) => r.price_from).map((r) => r.operator))],
+    p_like: null, p_mask_tag: null, p_q: null, p_tariff_min: null, p_tariff_max: null, p_region: null, p_operators: null,
+    p_with_price: false, p_discount: false, p_split: MIX_SPLIT, p_low: 0, p_rule_ops: null,
   };
-  const slice = async (op: string, bucket: "cheap" | "premium", k: number, window: number) => {
-    const start = hashStr(`${day}:${op}:${bucket}`) % window;
-    const off = start + (page - 1) * k;
+  const SRC: Record<FeedSrc, { args: Record<string, unknown>; window: number; ok: (x: CatalogItem) => boolean }> = {
+    special: { args: { p_regex: RE_ABABABX }, window: 120, ok: (x) => x.id[3] !== x.id[4] },
+    mid: { args: { p_price_min: 6000, p_price_max: 15000 }, window: 4000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
+    high: { args: { p_price_min: 15001, p_price_max: 40000 }, window: 3000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
+    low: { args: { p_price_min: 1000, p_price_max: 5999 }, window: 3000, ok: (x) => !endingUnrelated(x.id) },
+    exp: { args: { p_price_min: 40001 }, window: 400, ok: () => true },
+    req: { args: { p_bucket: "premium" }, window: 600, ok: (x) => x.price.kind === "request" },
+  };
+  const OVER = 5;
+  const fetchSrc = async (src: FeedSrc) => {
+    const k = need[src] * OVER;
+    if (!k) return { items: [] as CatalogItem[], total: 0 };
     const call = (o: number) =>
-      publicClient().rpc("search_numbers", { ...base, p_operators: [op], p_sort: "beauty", p_bucket: bucket, p_limit: k, p_offset: o });
-    let { data } = await call(off);
+      publicClient().rpc("search_numbers", { ...base, p_regex: null, p_price_min: null, p_price_max: null, p_bucket: null, ...SRC[src].args, p_sort: mode === "new" ? "new" : "beauty", p_limit: k, p_offset: o });
+    const start = hashStr(`${day}:${src}:${mode}`) % SRC[src].window;
+    let { data } = await call(start + (page - 1) * k);
     let rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
-    if (!rows.length && off > 0) {
-      // у оператора меньше номеров, чем окно — берём с начала
+    if (!rows.length) {
       ({ data } = await call((page - 1) * k));
       rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
     }
-    return { items: rows.map((r) => enrich(r.row_data, rules, settings)), total: rows.length ? Number(rows[0].total) : 0 };
+    return { items: rows.map((r) => enrich(r.row_data, rules, settings)).filter(SRC[src].ok), total: rows.length ? Number(rows[0].total) : 0 };
   };
-  const res = await Promise.all(
-    FEED_OPS.map(async (op) => {
-      // только самые красивые: узкое окно сверху по красоте, без дешёвых «проходных» комбинаций
-      const [c0, p] = await Promise.all([slice(op, "cheap", kCheap * 12, 600), slice(op, "premium", kPrem, 150)]);
-      // в рекомендациях — только «чистые» номера: узор доходит до конца номера, цена не копеечная;
-      // среди них выше те, что красивее и лаконичнее при разумной цене
-      const attract = (x: CatalogItem) =>
-        x.beauty_score + Math.max(0, 8 - new Set(x.id.slice(3)).size) * 4 + (x.price.kind === "fixed" && x.price.price <= 20000 ? 6 : 0);
-      const c = {
-        ...c0,
-        items: c0.items
-          .filter((x) => x.price.kind === "fixed" && x.price.price >= 6000 && !endingUnrelated(x.id) && strongNumber(x.id))
-          .sort((a, b) => attract(b) - attract(a))
-          // разные комбинации: не больше одного номера одного «рисунка» (AABAABA и т. п.)
-          .filter((x, i, arr) => arr.findIndex((y) => shapeOf(y.id) === shapeOf(x.id)) === i)
-          .slice(0, kCheap),
-      };
-      // у оператора: недорогой, недорогой, дорогой, …
-      const q: CatalogItem[] = [];
-      const ci = [...c.items];
-      const pi = [...p.items];
-      while (ci.length || pi.length) {
-        if (ci.length) q.push(ci.shift()!);
-        if (ci.length) q.push(ci.shift()!);
-        if (pi.length) q.push(pi.shift()!);
-      }
-      return { q, total: c.total + p.total };
-    }),
-  );
-  // операторы по кругу, порядок операторов свой на каждый день
-  const order = [...res].sort((a, b) => hashStr(day + a.q[0]?.id) - hashStr(day + b.q[0]?.id));
+  const srcs = Object.keys(need) as FeedSrc[];
+  const got = Object.fromEntries(await Promise.all(srcs.map(async (s) => [s, await fetchSrc(s)] as const))) as Record<FeedSrc, { items: CatalogItem[]; total: number }>;
+  // без повторов: ни одного и того же рисунка, ни тех же 7 цифр с другим кодом
+  const seenShape = new Set<string>();
+  const seenBody = new Set<string>();
+  const queue = Object.fromEntries(srcs.map((s) => [s, [...got[s].items]])) as Record<FeedSrc, CatalogItem[]>;
+  const takeFrom = (s: FeedSrc, strict: boolean): CatalogItem | null => {
+    const q = queue[s];
+    const i = q.findIndex((x) => !seenBody.has(x.id.slice(3)) && (!strict || !seenShape.has(shapeOf(x.id))));
+    if (i < 0) return null;
+    const [x] = q.splice(i, 1);
+    seenBody.add(x.id.slice(3));
+    seenShape.add(shapeOf(x.id));
+    return x;
+  };
   const items: CatalogItem[] = [];
-  for (let r = 0; items.length < pageSize && order.some((o) => o.q.length); r++) {
-    for (const o of order) if (o.q.length && items.length < pageSize) items.push(o.q.shift()!);
+  const fallback: FeedSrc[] = ["mid", "high", "exp", "low", "req", "special"];
+  for (let i = 0; i < pageSize; i++) {
+    const want = FEED_CYCLE[i % FEED_CYCLE.length];
+    const x =
+      takeFrom(want, true) ??
+      takeFrom(want, false) ??
+      fallback.map((s) => takeFrom(s, true)).find(Boolean) ??
+      fallback.map((s) => takeFrom(s, false)).find(Boolean) ??
+      null;
+    if (!x) break;
+    items.push(x);
   }
-  const total = res.reduce((a, b) => a + b.total, 0);
+  const total = got.mid.total + got.high.total + got.low.total + got.exp.total + got.req.total;
   return { items, total, page, pageSize };
 }
 

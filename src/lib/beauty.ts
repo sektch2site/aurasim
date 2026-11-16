@@ -165,6 +165,8 @@ export function analyzeBeauty(raw: string): BeautyResult {
   if (codeJoined) for (let k = 0; k < 3; k++) mask[k] = "1";
   // номер после кода собран всего из двух цифр (112 12 12, 665 65 65) — подсвечиваем его целиком
   if (distinct <= 2) for (let k = 3; k < 10; k++) mask[k] = "1";
+  // ***ABABAB X — выделяем всё после кода
+  if (/^\d{3}(\d)(\d)\1\2\1\2\d$/.test(s) && s[3] !== s[4]) for (let k = 3; k < 10; k++) mask[k] = "1";
   // одиночная «дырка» между подсвеченными цифрами (999 9[2]2 42 42) — закрашиваем, чтобы узор читался целиком
   for (let k = 1; k < 9; k++) if (mask[k] === "0" && mask[k - 1] === "1" && mask[k + 1] === "1") mask[k] = "1";
 
@@ -183,6 +185,16 @@ export function numberGroups(id: string, fmt?: number[] | null): [number, number
     let p = 0;
     for (const len of fmt) out.push([p, (p += len)]);
     return out;
+  }
+  // ***ABABAB X пишется парами: 915 56 56 56 0
+  if (/^\d{3}(\d)(\d)\1\2\1\2\d$/.test(id) && id[3] !== id[4]) {
+    return [
+      [0, 3],
+      [3, 5],
+      [5, 7],
+      [7, 9],
+      [9, 10],
+    ];
   }
   const m = /(\d)\1{4,}/.exec(id.slice(3));
   if (m) {

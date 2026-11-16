@@ -60,7 +60,35 @@ export function isFiveStart(id: string): boolean {
  * Комбинации с отдельной ценой (по просьбе Ильи). Проверяются по порядку, первая подходящая побеждает.
  * b — 7 цифр после кода.
  */
+/** ***ABABAB X — 915 56 56 56 0, 915 56 56 56 6, 915 56 56 56 5 */
+export function isAbababX(id: string): boolean {
+  return /^\d{3}(\d)(\d)\1\2\1\2\d$/.test(id) && id[3] !== id[4];
+}
+
+/**
+ * Выкупные номера (цена из партнёрки): МегаФон и МТС — «Узнать цену»;
+ * у остальных — надбавка по шкале Ильи; дороже 150 тыс. — по запросу.
+ * Комбинации ******AAAA, ****A0AAAA, ****ABABAB и ***ABABAB X — как раньше, по запросу.
+ */
+export function buyoutPrice(n: Pick<PhoneNumber, "id" | "operator" | "partner_price">): number | null {
+  const P = n.partner_price ?? 0;
+  if (P <= 0) return null;
+  if (n.operator === "megafon" || n.operator === "mts") return null;
+  const id = n.id;
+  if (/(\d)\1\1\1$/.test(id)) return null; // ******AAAA
+  if (/([1-9])0\1\1\1\1$/.test(id)) return null; // ****A0AAAA
+  if (/(\d)(\d)\1\2\1\2$/.test(id)) return null; // ****ABABAB
+  if (isAbababX(id)) return null;
+  if (P > 150000) return null;
+  let add = 10000;
+  if (P > 110000) add = 22000 + Math.round(seed(id) * 3) * 1000; // 22–25 тыс.
+  else if (P > 70000) add = 15000;
+  return Math.round((P + add) / 500) * 500;
+}
+
 export const PATTERN_PRICES: { name: string; example: string; from: number; to: number; test: (b: string) => boolean }[] = [
+  // ***ABABAB X — приоритет Ильи
+  { name: "***ABABAB X", example: "915 56 56 56 0", from: 10000, to: 25000, test: (b) => /^(\d)(\d)\1\2\1\2\d$/.test(b) && b[0] !== b[1] },
   // ****A0AAAA — 916 370 77 77 (код + любая цифра, затем A0AAAA)
   { name: "****A0AAAA", example: "916 370 77 77", from: 35000, to: 40000, test: (b) => /^\d([1-9])0\1\1\1\1$/.test(b) },
   // ***AAA + зеркальное окончание — 969 111 39 93, 994 111 08 80
@@ -81,7 +109,7 @@ export const PATTERN_PRICES: { name: string; example: string; from: number; to: 
 
 /**
  * Окончание «не связано» с узором: последние цифры случайные (901 838 31 37, 932 888 82 27).
- * Связано, если: две одинаковые в конце, ABAB/ABBA, ступенька (123/321), или пара в конце уже встречалась после кода.
+ * Связано, если: две одинаковые в конце, ABAB/ABBA, ступенька (123/321).
  */
 export function endingUnrelated(id: string): boolean {
   const d = id.split("").map(Number);
@@ -90,8 +118,6 @@ export function endingUnrelated(id: string): boolean {
   if (a === c && b === e) return false; // ABAB
   if (a === e && b === c) return false; // ABBA
   if (e - c === c - b && Math.abs(e - c) === 1) return false; // 123 / 321
-  const pair = id.slice(8);
-  if (id.slice(3, 8).includes(pair)) return false;
   return true;
 }
 
@@ -131,8 +157,11 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   if (isVipPattern(n.id)) return { kind: "request" };
   if (n.partner_price && n.partner_price > 0) {
     const p = roundPrice(n.partner_price * (1 + settings.markup_percent / 100), settings.round_to);
-    // дорогие выкупные номера — без цены, покупатель спрашивает её у менеджера
-    if (settings.hide_buyout_price) return { kind: "request" };
+    // шкала надбавок Ильи; МегаФон/МТС, дороже 150 тыс. и особые комбинации — «Узнать цену»
+    if (settings.hide_buyout_price) {
+      const bp = buyoutPrice(n);
+      return bp ? { kind: "fixed", price: bp, old: n.price_old } : { kind: "request" };
+    }
     return { kind: "fixed", price: p, old: n.price_old };
   }
   const rule = findRule(n, rules);

@@ -8,11 +8,8 @@
   if (window.__auraSync && window.__auraSync.state === "running") return;
   var SITE = (window.__AURA_SITE || "https://aurasim.vercel.app").replace(/\/$/, "");
   var KEY = window.__AURA_KEY;
-  var MASKS = [
-    "******AAAA", "*****AAAA*", "****AAAA**", "***AAAA***", "*******AAA",
-    "****ABABAB", "***ABAB***", "******ABAB", "******A0A0", "***AAABCBC", "AAA***BCBC",
-    "***ABBA***", "****ABBA**", "*****ABBA*", "******ABBA", "***ABC*ABC", "***AAA*AAA",
-  ];
+  // "" — вся база кабинета целиком (≈490 тыс.), без масок
+  var MASKS = [""];
   var PAGE = 150;
   var CONCURRENCY = 6;
   var st = (window.__auraSync = { state: "running", startedAt: new Date().toISOString(), mask: "", pages: 0, seen: 0, own: 0, error: null, runId: null });
@@ -72,7 +69,9 @@
   }
 
   function searchPage(mask, offset) {
-    var body = new URLSearchParams({ "search[isFree]": "1", "search[number]": mask, "search[isLast]": "1", tab: "all" });
+    var params = { "search[isFree]": "1", "search[isLast]": "1", tab: "all" };
+    if (mask) params["search[number]"] = mask;
+    var body = new URLSearchParams(params);
     return partnerJson("/number/" + offset, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },

@@ -57,8 +57,12 @@ export async function POST(req: Request) {
         .map((it) => partnerToRow(it, body.runId, now, (rules as PriceRule[]) ?? [], settings))
         .filter((r): r is NonNullable<typeof r> => !!r && !seenIds.has(r.id) && !!seenIds.add(r.id));
       if (!rows.length) return json({ count: 0 });
-      const { error } = await db.from("numbers").upsert(rows, { onConflict: "id" });
+      // «проходные» номера в базу не кладём (экономим место), а если такой уже лежит — скрываем
+      const keep = rows.filter((r) => r.is_active);
+      const junkIds = rows.filter((r) => !r.is_active).map((r) => r.id);
+      const { error } = keep.length ? await db.from("numbers").upsert(keep, { onConflict: "id" }) : { error: null };
       if (error) return json({ error: error.message }, 500);
+      if (junkIds.length) await db.from("numbers").update({ is_active: false }).in("id", junkIds);
       return json({ count: rows.length });
     }
     case "finish": {

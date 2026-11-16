@@ -357,8 +357,10 @@ async function SettingsTab() {
         <label className="flex items-start gap-3 sm:col-span-2">
           <input type="checkbox" name="hide_buyout_price" defaultChecked={s.hide_buyout_price} className="mt-1 h-5 w-5 accent-aura" />
           <span>
-            <span className="block text-sm font-bold">Выкупные номера — без цены («Узнать цену»)</span>
-            <span className="block text-xs text-mute">Номера, у которых в партнёрке стоит цена выкупа. Своя цена из «Номера и цены» всё равно показывается.</span>
+            <span className="block text-sm font-bold">Выкупные номера — цена по шкале надбавок</span>
+            <span className="block text-xs text-mute">
+              До 70 тыс. +10 000, 70–110 тыс. +15 000, 110–150 тыс. +22–25 тыс., дороже 150 тыс. — «Узнать цену». МегаФон, МТС и комбинации ******AAAA, ****A0AAAA, ****ABABAB, ***ABABAB X — «Узнать цену». Выключено — цена партнёрки + наценка из поля выше. Своя цена из «Номера и цены» важнее.
+            </span>
           </span>
         </label>
         {field("video_url", "Видео «Процесс покупки»", "Ссылка на mp4 или на пост/видео. Пусто — кнопки не будет")}
