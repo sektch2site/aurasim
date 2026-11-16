@@ -17,6 +17,9 @@ export const POPULAR_MASKS = [
   "***AAA*AAA",
 ];
 
+/** Маски, для которых в базе заранее проставлен тег (быстрый поиск): популярные + служебные */
+export const TAGGED_MASKS = [...POPULAR_MASKS, "***ABABAB*"];
+
 export function normalizeMask(mask: string): string {
   const m = mask.toUpperCase().replace(/[^0-9A-Z*]/g, "").slice(0, 10);
   return m.padStart(10, "*");

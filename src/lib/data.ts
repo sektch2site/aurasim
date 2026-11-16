@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
-import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, POPULAR_MASKS } from "./mask";
+import { digitsToLike, matchLike, matchMask, maskToPgRegex, normalizeMask, TAGGED_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
 import { customPatternFor, findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
@@ -195,8 +195,8 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 
   const base = {
     p_like: like,
-    p_regex: q.mask && !POPULAR_MASKS.includes(normalizeMask(q.mask)) ? maskToPgRegex(q.mask) : null,
-    p_mask_tag: q.mask && POPULAR_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
+    p_regex: q.mask && !TAGGED_MASKS.includes(normalizeMask(q.mask)) ? maskToPgRegex(q.mask) : null,
+    p_mask_tag: q.mask && TAGGED_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
     p_q: free ?? null,
     p_operators: q.operators?.length ? q.operators : null,
     p_tariff_min: q.tariffMin ?? null,
@@ -323,7 +323,7 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     p_with_price: false, p_discount: false, p_split: MIX_SPLIT, p_low: 0, p_rule_ops: null,
   };
   const SRC: Record<FeedSrc, { args: Record<string, unknown>; window: number; ok: (x: CatalogItem) => boolean }> = {
-    special: { args: { p_regex: RE_ABABABX }, window: 120, ok: (x) => x.id[3] !== x.id[4] },
+    special: { args: { p_mask_tag: "***ABABAB*" }, window: 120, ok: (x) => x.id[3] !== x.id[4] },
     mid: { args: { p_price_min: 6000, p_price_max: 15000 }, window: 4000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
     high: { args: { p_price_min: 15001, p_price_max: 40000 }, window: 3000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
     low: { args: { p_price_min: 1000, p_price_max: 4999 }, window: 3000, ok: (x) => !endingUnrelated(x.id) },
