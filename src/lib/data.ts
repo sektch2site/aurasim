@@ -326,11 +326,11 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     special: { args: { p_regex: RE_ABABABX }, window: 120, ok: (x) => x.id[3] !== x.id[4] },
     mid: { args: { p_price_min: 6000, p_price_max: 15000 }, window: 4000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
     high: { args: { p_price_min: 15001, p_price_max: 40000 }, window: 3000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
-    low: { args: { p_price_min: 1000, p_price_max: 5999 }, window: 3000, ok: (x) => !endingUnrelated(x.id) },
+    low: { args: { p_price_min: 1000, p_price_max: 4999 }, window: 3000, ok: (x) => !endingUnrelated(x.id) },
     exp: { args: { p_price_min: 40001 }, window: 400, ok: () => true },
     req: { args: { p_bucket: "premium" }, window: 600, ok: (x) => x.price.kind === "request" },
   };
-  const OVER = 5;
+  const OVER = 8;
   const fetchSrc = async (src: FeedSrc) => {
     const k = need[src] * OVER;
     if (!k) return { items: [] as CatalogItem[], total: 0 };
@@ -350,14 +350,24 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
   // без повторов: ни одного и того же рисунка, ни тех же 7 цифр с другим кодом
   const seenShape = new Set<string>();
   const seenBody = new Set<string>();
+  const perCode = new Map<string, number>();
+  const seenPrefix = new Set<string>();
   const queue = Object.fromEntries(srcs.map((s) => [s, [...got[s].items]])) as Record<FeedSrc, CatalogItem[]>;
   const takeFrom = (s: FeedSrc, strict: boolean): CatalogItem | null => {
     const q = queue[s];
-    const i = q.findIndex((x) => !seenBody.has(x.id.slice(3)) && (!strict || !seenShape.has(shapeOf(x.id))));
-    if (i < 0) return null;
+    // строго: новый рисунок, не больше 2 номеров с одним кодом, не два номера с одинаковым началом (901 34…)
+    const fits = (x: CatalogItem) =>
+      !seenBody.has(x.id.slice(3)) &&
+      (!strict || (!seenShape.has(shapeOf(x.id)) && (perCode.get(x.id.slice(0, 3)) ?? 0) < 2 && !seenPrefix.has(x.id.slice(0, 5))));
+    const idx = q.map((x, i) => (fits(x) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) return null;
+    // не подряд по красоте, а вразброс
+    const i = idx[hashStr(`${day}:${s}:${items.length}`) % Math.min(idx.length, 6)];
     const [x] = q.splice(i, 1);
     seenBody.add(x.id.slice(3));
     seenShape.add(shapeOf(x.id));
+    seenPrefix.add(x.id.slice(0, 5));
+    perCode.set(x.id.slice(0, 3), (perCode.get(x.id.slice(0, 3)) ?? 0) + 1);
     return x;
   };
   const items: CatalogItem[] = [];
