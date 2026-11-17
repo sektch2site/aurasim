@@ -1,3 +1,4 @@
+import { aabbTier, isLoosePairs, isMirrorCodeAbab, middleTriple } from "./combos";
 import { matchMask } from "./mask";
 import type { CustomPattern, PhoneNumber, PriceRule, ResolvedPrice, Settings } from "./types";
 
@@ -165,6 +166,8 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
     return { kind: "fixed", price: p, old: n.price_old };
   }
   const rule = findRule(n, rules);
+  // 977 79* 07 07 — код отражается в начале + ABAB на конце
+  if (rule && rule.price_from && isMirrorCodeAbab(n.id)) return { kind: "fixed", price: spread(n, 20000, 25000), old: null };
   if (rule && rule.price_from && isFiveMiddle(n.id)) {
     return { kind: "fixed", price: settings.five_mid_price || 3500, old: null };
   }
@@ -174,6 +177,8 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
   }
   const pp = rule && rule.price_from ? patternPrice(n.id) : null;
   if (pp) return { kind: "fixed", price: spread(n, pp.from, pp.to), old: null };
+  const combo = rule && rule.price_from ? comboPrice(n.id) : null;
+  if (combo) return { kind: "fixed", price: spread(n, combo[0], combo[1]), old: null };
   // тройка (или больше) и случайный конец — 932 888 82 27
   if (rule && rule.price_from && endingUnrelated(n.id) && /(\d)\1\1/.test(n.id.slice(3)) && !isFiveStart(n.id) && !isFiveMiddle(n.id))
     return { kind: "fixed", price: 5000, old: null };
@@ -186,6 +191,20 @@ export function resolvePrice(n: PhoneNumber, rules: PriceRule[], settings: Setti
     return { kind: "fixed", price: base + laconicBonus(n.id), old: null };
   }
   return { kind: "request" };
+}
+
+/** Правила Ильи от 17.11: AABB на конце, три одинаковых в середине, «пары без узора» */
+export function comboPrice(id: string): [number, number] | null {
+  const ab = aabbTier(id);
+  if (ab === "plain") return [1000, 1000];
+  if (ab === "linked") return [1500, 2000];
+  if (ab === "code") return [5000, 5000];
+  if (ab === "global") return [5000, 7000];
+  const t = middleTriple(id);
+  if (t === "plain") return [1200, 1200];
+  if (t === "linked") return [4000, 7000];
+  if (isLoosePairs(id)) return [1500, 2000];
+  return null;
 }
 
 /**

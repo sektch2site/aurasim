@@ -1,3 +1,5 @@
+import { aabbTier, isMirrorCodeAbab, MIRROR_CODE_ABAB_MASK } from "./combos";
+
 /**
  * Анализ «красоты» номера. Работает с 10 цифрами без +7 (напр. 9610444004).
  * Возвращает балл (0–100), маску подсветки и теги.
@@ -170,7 +172,11 @@ export function analyzeBeauty(raw: string): BeautyResult {
   // одиночная «дырка» между подсвеченными цифрами (999 9[2]2 42 42) — закрашиваем, чтобы узор читался целиком
   for (let k = 1; k < 9; k++) if (mask[k] === "0" && mask[k - 1] === "1" && mask[k + 1] === "1") mask[k] = "1";
 
-  return { score: Math.min(100, Math.round(score)), mask: mask.join(""), tags: [...tags] };
+  // AABB, где середина собрана из цифр кода (936 996 66 44) — код тоже часть узора
+  if (aabbTier(s) === "code") for (let k = 0; k < 3; k++) mask[k] = "1";
+  const out = isMirrorCodeAbab(s) ? MIRROR_CODE_ABAB_MASK : mask.join("");
+
+  return { score: Math.min(100, Math.round(score)), mask: out, tags: [...tags] };
 }
 
 
