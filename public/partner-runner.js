@@ -133,18 +133,43 @@
         push((first.list || []).filter(function (x) { return x.status === 0; }));
         scanned += (first.list || []).length;
         st.pages++;
-        var offsets = [];
-        for (var off = PAGE; off < total; off += PAGE) offsets.push(off);
-        await pool(offsets, CONCURRENCY, async function (o) {
-          var r;
-          try { r = await searchPage(mask, o); }
-          catch (e) { if (e.expired) throw e; skipped++; st.skipped = skipped; return; }
-          var l = r.list || [];
-          scanned += l.length;
-          st.pages++;
-          push(l.filter(function (x) { return x.status === 0; }));
-          await flush(false);
-        });
+        if (total > 0) {
+          var offsets = [];
+          for (var off = PAGE; off < total; off += PAGE) offsets.push(off);
+          await pool(offsets, CONCURRENCY, async function (o) {
+            var r;
+            try { r = await searchPage(mask, o); }
+            catch (e) { if (e.expired) throw e; skipped++; st.skipped = skipped; return; }
+            var l = r.list || [];
+            scanned += l.length;
+            st.pages++;
+            push(l.filter(function (x) { return x.status === 0; }));
+            await flush(false);
+          });
+        } else if ((first.list || []).length >= PAGE) {
+          // кабинет больше не отдаёт total для всей базы — идём страницами, пока не кончатся
+          var next = PAGE;
+          var end = 2000000;
+          var workers = [];
+          for (var w = 0; w < CONCURRENCY; w++) {
+            workers.push((async function () {
+              while (next < end) {
+                var o = next;
+                next += PAGE;
+                var r;
+                try { r = await searchPage(mask, o); }
+                catch (e) { if (e.expired) throw e; skipped++; st.skipped = skipped; continue; }
+                var l = r.list || [];
+                if (!l.length || r.hasMore === false) end = Math.min(end, o + PAGE);
+                scanned += l.length;
+                st.pages++;
+                push(l.filter(function (x) { return x.status === 0; }));
+                await flush(false);
+              }
+            })());
+          }
+          await Promise.all(workers);
+        }
         await flush(false);
       }
       await flush(true);
