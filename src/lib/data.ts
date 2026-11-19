@@ -229,9 +229,10 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   let sort = q.sort ?? "mix";
   const offset = (page - 1) * pageSize;
   // своя маска (регулярка) тяжёлая — без смешанной выдачи, одним запросом
-  if (sort === "mix" && mc) sort = "beauty";
-  // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
   const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount && q.priceMin == null && q.priceMax == null;
+  // любой поиск с условиями — одним запросом по красоте (дешёвые всё равно в конце); смешанная выдача только для «Рекомендуем»
+  if (sort === "mix" && !plain) sort = "beauty";
+  // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
   if ((sort === "mix" || sort === "new") && plain) return recommendedPage(page, pageSize, moscowDay(), sort);
   if (sort !== "mix") {
     const r = await slice(sort, null, offset, pageSize);
@@ -288,6 +289,16 @@ function strongNumber(id: string): boolean {
   return new Set(b).size <= 3 || /(\d)\1\1/.test(b) || /(\d)(?!\1)(\d)\1\2$/.test(b);
 }
 
+/** 916 000 77 77, 977 707 77 77, 999 199 44 44 — середина сочетается: повтор, нули, цифра окончания или из кода */
+function goodMiddleAaaa(id: string): boolean {
+  const mid = id.slice(3, 6);
+  const a = id[9];
+  const code = id.slice(0, 3);
+  return (
+    new Set(mid).size <= 2 || mid.includes("0") || mid.includes(a) || [...mid].every((d) => code.includes(d))
+  );
+}
+
 /** «Рисунок» номера после кода: 6616616 → ABBABBA */
 function shapeOf(id: string): string {
   const m = new Map<string, string>();
@@ -304,12 +315,12 @@ function shapeOf(id: string): string {
 /** ***ABABAB X — приоритетная комбинация Ильи (915 56 56 56 0) */
 export const RE_ABABABX = "^[0-9]{3}([0-9])([0-9])\\1\\2\\1\\2[0-9]$";
 
-type FeedSrc = "special" | "mid" | "high" | "low" | "exp" | "req";
+type FeedSrc = "special" | "mid" | "high" | "low" | "exp" | "req" | "aaaa";
 /**
  * Раскладка 10 мест: дорогой — каждый 4-й, приоритетная комбинация открывает десяток,
  * дальше вперемешку 6–15 тыс., 15–40 тыс. и недорогие.
  */
-const FEED_CYCLE: FeedSrc[] = ["special", "mid", "high", "exp", "mid", "low", "high", "req", "mid", "high"];
+const FEED_CYCLE: FeedSrc[] = ["special", "mid", "high", "exp", "aaaa", "low", "high", "req", "mid", "high"];
 
 /**
  * «Рекомендуем» и «Новые» без фильтров: каждый день новая выборка, сильный разброс —
@@ -320,7 +331,7 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
   cacheLife("hours");
   cacheTag(CATALOG_TAG);
   const [rules, settings] = await Promise.all([getRules(), getSettings()]);
-  const need: Record<FeedSrc, number> = { special: 0, mid: 0, high: 0, low: 0, exp: 0, req: 0 };
+  const need: Record<FeedSrc, number> = { special: 0, mid: 0, high: 0, low: 0, exp: 0, req: 0, aaaa: 0 };
   for (let i = 0; i < pageSize; i++) need[FEED_CYCLE[i % FEED_CYCLE.length]]++;
   const base = {
     p_like: null, p_mask_tag: null, p_q: null, p_tariff_min: null, p_tariff_max: null, p_region: null, p_operators: null,
@@ -332,6 +343,8 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     high: { args: { p_price_min: 15001, p_price_max: 40000 }, window: 3000, ok: (x) => strongNumber(x.id) && !endingUnrelated(x.id) },
     low: { args: { p_price_min: 1000, p_price_max: 4999 }, window: 3000, ok: (x) => !endingUnrelated(x.id) },
     exp: { args: { p_price_min: 40001 }, window: 400, ok: () => true },
+    // AAAA на конце с «хорошей» серединой: повтор, нули, цифра окончания или цифры кода
+    aaaa: { args: { p_mask_tag: "******AAAA" }, window: 1500, ok: (x) => goodMiddleAaaa(x.id) },
     req: { args: { p_bucket: "premium" }, window: 600, ok: (x) => x.price.kind === "request" },
   };
   const OVER = 8;
@@ -391,7 +404,7 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     return x;
   };
   const items: CatalogItem[] = [];
-  const fallback: FeedSrc[] = ["mid", "high", "exp", "low", "req", "special"];
+  const fallback: FeedSrc[] = ["mid", "high", "aaaa", "exp", "low", "req", "special"];
   for (let i = 0; i < pageSize; i++) {
     const want = FEED_CYCLE[i % FEED_CYCLE.length];
     const x =
@@ -403,7 +416,9 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
     if (!x) break;
     items.push(x);
   }
-  const total = got.mid.total + got.high.total + got.low.total + got.exp.total + got.req.total;
+  // «Найдено» — все номера на сайте, а не только те, из которых собирается подборка
+  const { count: allTotal } = await publicClient().from("numbers").select("id", { count: "exact", head: true }).eq("is_active", true);
+  const total = (allTotal ?? 0) || got.mid.total + got.high.total + got.low.total + got.exp.total + got.req.total;
   return { items, total, page, pageSize };
 }
 
