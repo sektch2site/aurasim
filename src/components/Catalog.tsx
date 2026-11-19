@@ -114,6 +114,8 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
     searched: false,
   });
   const [loading, setLoading] = useState(false);
+  // новый поиск: старый список убираем сразу и показываем спиннер, чтобы не казалось, что «выдало не то»
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const view = useSyncExternalStore(subscribeView, readView, () => "list" as View);
@@ -159,6 +161,11 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
   const run = useCallback(async (filters: Filters, page = 1, scroll = true) => {
     setLoading(true);
     setError(null);
+    if (page === 1) {
+      setSearching(true);
+      setRes((prev) => ({ ...prev, items: [], total: 0 }));
+      if (scroll) setTimeout(() => listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+    }
     try {
       const r = await fetch(`/api/numbers?${toParams(filters, page)}`);
       const data = (await r.json()) as CatalogResult & { error?: string };
@@ -169,11 +176,11 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
         page,
         searched: !isEmpty(filters),
       }));
-      if (page === 1 && scroll) setTimeout(() => listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
+      setSearching(false);
     }
   }, []);
 
@@ -374,7 +381,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
         <div className="mb-2.5 flex flex-wrap items-center gap-x-4 gap-y-2 px-1">
           <h2 className="font-display mr-auto text-lg font-extrabold sm:text-xl">{res.searched ? "Результаты поиска" : "Все номера"}</h2>
           <span className="text-sm font-semibold text-ink-soft">
-            Найдено: <span className="num text-ink">{new Intl.NumberFormat("ru-RU").format(res.total)}</span> шт
+            Найдено: <span className="num text-ink">{searching ? "…" : new Intl.NumberFormat("ru-RU").format(res.total)}</span> шт
           </span>
         </div>
         <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
@@ -447,6 +454,16 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
 
         <div className={view === "grid" ? "grid grid-cols-2 gap-2 lg:grid-cols-3" : "space-y-2"}>
           {res.items.map((n) => (view === "grid" ? <NumberTile key={n.id} n={n} /> : <NumberRow key={n.id} n={n} />))}
+          {searching && (
+            <div className="card-glow flex flex-col items-center gap-3 rounded-2xl p-8 text-center">
+              <div className="aura-spin scale-75">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand.jpg" alt="" />
+              </div>
+              <div className="font-bold text-ink">Ищем номера…</div>
+              <div className="text-sm text-mute">Перебираем базу из сотен тысяч номеров, это займёт пару секунд</div>
+            </div>
+          )}
           {!res.items.length && !loading && (
             <div className="card-glow rounded-2xl p-8 text-center text-ink-soft">
               {res.searched ? "Ничего не нашли — уберите часть цифр или фильтров, или напишите нам: подберём вручную." : "Номера скоро появятся."}
