@@ -1,0 +1,235 @@
+@import "tailwindcss";
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/montserrat";
+@import "@fontsource-variable/montserrat/wght-italic.css";
+
+@theme {
+  --font-sans: "Manrope Variable", system-ui, sans-serif;
+  --font-display: "Montserrat Variable", "Manrope Variable", sans-serif;
+
+  --color-ink: #0b1633;
+  --color-ink-soft: #4a5675;
+  --color-mute: #8a94ad;
+  --color-line: #dbe4f6;
+  --color-paper: #eef4ff;
+  --color-aura: #1a44e8;
+  --color-aura-deep: #1236b8;
+  --color-aura-soft: #e7eeff;
+  --color-sky: #6fc3ff;
+  --color-money: #17913f;
+  --color-money-soft: #e3f7e8;
+  --color-fire: #ff5a1f;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(120, 190, 255, 0.45), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(160, 205, 255, 0.35), transparent 60%),
+    linear-gradient(180deg, #f2f7ff 0%, #eaf2ff 100%);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Фирменные «ледяные» блики в углах, как на постах канала */
+.aura-stripes {
+  position: relative;
+  overflow: hidden;
+}
+.aura-stripes::before,
+.aura-stripes::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  filter: blur(2px);
+}
+.aura-stripes::before {
+  left: -18%;
+  top: -30%;
+  width: 55%;
+  height: 70%;
+  background: linear-gradient(135deg, rgba(0, 140, 255, 0.55), rgba(120, 200, 255, 0.15) 45%, transparent 70%);
+  transform: rotate(-28deg);
+  border-radius: 40%;
+}
+.aura-stripes::after {
+  right: -20%;
+  bottom: -35%;
+  width: 60%;
+  height: 70%;
+  background: linear-gradient(315deg, rgba(0, 120, 255, 0.35), rgba(140, 210, 255, 0.12) 50%, transparent 70%);
+  transform: rotate(-28deg);
+  border-radius: 40%;
+}
+
+.card-glow {
+  background: #fff;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 12px 32px -18px rgba(28, 75, 240, 0.35);
+}
+
+.pill-number {
+  border: 2.5px solid var(--color-aura);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9), 0 0 22px 2px rgba(26, 68, 232, 0.28);
+  background: #fff;
+}
+
+.price-chip {
+  background: linear-gradient(90deg, #eef3ff 0%, #f4f8ff 45%, #e2f8e7 80%, #b9f0c5 100%);
+  box-shadow: 0 0 0 1px rgba(26, 68, 232, 0.06) inset, 6px 4px 18px -8px rgba(23, 200, 70, 0.55);
+}
+.feature-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-aura);
+}
+.brand-word {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Яркая карточка: фирменный синий градиент с бликами */
+.aura-card {
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(120, 200, 255, 0.55), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgba(80, 160, 255, 0.45), transparent 60%),
+    linear-gradient(150deg, #1236b8 0%, #1a44e8 45%, #2f6dff 100%);
+  box-shadow: 0 18px 40px -18px rgba(18, 54, 184, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.aura-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.14) 38%, transparent 46%);
+}
+
+/* Белая «пилюля» номера внутри яркой карточки */
+.pill-number-strong {
+  background: #fff;
+  border: 2.5px solid #9cc6ff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25), 0 0 24px rgba(120, 190, 255, 0.55);
+}
+
+/* Рамка строки номера */
+.row-frame {
+  background: linear-gradient(100deg, #b9cdfb, #dfe9ff 45%, #b9cdfb);
+}
+.row-frame-top {
+  background: linear-gradient(100deg, #1a44e8, #5fb4ff 50%, #1a44e8);
+  box-shadow: 0 8px 22px -12px rgba(26, 68, 232, 0.65);
+}
+
+/* Подсвеченные цифры */
+.text-aura.num-lit,
+.num .text-aura {
+  text-shadow: 0 0 14px rgba(26, 68, 232, 0.28);
+}
+
+/* Выпадающий список со своей стрелкой и отступом */
+.select-nice {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231a44e8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px !important;
+}
+
+/* курсор-рука на всём кликабельном */
+button:not(:disabled),
+[role="button"],
+a[href],
+select,
+label[for],
+summary,
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* лоадер при первой загрузке */
+#aura-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #ffffff, #e3ecff 70%);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+#aura-loader.done {
+  opacity: 0;
+  visibility: hidden;
+}
+.aura-spin {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+}
+.aura-spin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid rgba(29, 78, 216, 0.12);
+  border-top-color: #1d4ed8;
+  animation: aura-rot 0.9s linear infinite;
+}
+.aura-spin img {
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  animation: aura-pulse 1.6s ease-in-out infinite;
+}
+@keyframes aura-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes aura-pulse {
+  50% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+}

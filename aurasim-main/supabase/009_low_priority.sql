@@ -1,0 +1,3 @@
+-- 009: при фильтре цены до 5000 сначала окончания ABAB / A0A0 / A00A (применено в SQL-редакторе; функция как в 008 + ключ сортировки)
+-- case when p_sort not in ('price_asc','price_desc') and p_price_max is not null and p_price_max <= 5000
+--   then not (n.id ~ '(\d)(\d)\1\2$' or n.id ~ '([1-9])00\1$') end asc,
