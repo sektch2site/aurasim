@@ -94,6 +94,8 @@ export interface Settings {
   auto_sale_ids?: Record<string, number>;
   /** свои комбинации Ильи: маска (10 символов), цена от–до, какие цифры выделять */
   custom_patterns?: CustomPattern[];
+  /** готовая подборка «Рекомендуем» на день (собирается ночью) */
+  feed?: { day: string; total: number; ids: string[] };
   /** номера вида ***AAAAA XY (991 222 22 15) — диапазон цены, ₽ */
   five_start_from: number;
   five_start_to: number;

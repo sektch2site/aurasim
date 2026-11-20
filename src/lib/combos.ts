@@ -86,3 +86,17 @@ export function isLoosePairs(id: string): boolean {
   if (new Set(body).size !== 3) return false;
   return !/(\d)\1\1/.test(body);
 }
+
+/**
+ * Тройка на конце, остальное не связано (965 265 27 77, 966 850 01 11) → 1000.
+ * Ровно три одинаковых в конце, других троек нет, цифры тройки в середине нет, после кода больше 3 разных цифр.
+ */
+export function isPlainTripleEnd(id: string): boolean {
+  const A = id[9];
+  if (!(id[8] === A && id[7] === A && id[6] !== A)) return false;
+  const body = id.slice(3);
+  if (new Set(body).size <= 3) return false;
+  const rest = id.slice(3, 7);
+  if (rest.includes(A)) return false;
+  return !/(\d)\1\1/.test(rest);
+}

@@ -338,7 +338,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
                 <button
                   type="button"
                   key={label}
-                  onClick={() => setF((s) => (on ? { ...s, pmin: "", pmax: "" } : { ...s, pmin: a, pmax: b, mask: "" }))}
+                  onClick={() => setF((s) => (on ? { ...s, pmin: "", pmax: "" } : { ...s, pmin: a, pmax: b }))}
                   className={`shrink-0 rounded-xl border px-3 py-1.5 text-sm font-bold transition ${
                     on ? "border-aura bg-aura text-white shadow-md shadow-aura/30" : "border-aura/20 bg-white text-aura-deep hover:border-aura/50"
                   }`}
@@ -356,7 +356,7 @@ export function Catalog({ initial, featured }: { initial: CatalogResult; feature
               type="button"
               key={m}
               onClick={() =>
-                setF((s) => (s.mask === m ? { ...s, mask: "" } : { ...s, mask: m, digits: Array(7).fill(""), q: "", pmin: "", pmax: "", priced: false, discount: false }))
+                setF((s) => (s.mask === m ? { ...s, mask: "" } : { ...s, mask: m, digits: Array(7).fill(""), q: "" }))
               }
               className={`num shrink-0 rounded-xl border px-2.5 py-1.5 text-[13px] tracking-wider transition ${
                 f.mask === m ? "border-aura bg-aura text-white" : "border-line bg-white text-ink hover:border-aura/40"

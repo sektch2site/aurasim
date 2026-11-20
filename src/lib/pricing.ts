@@ -1,4 +1,4 @@
-import { aabbTier, isLoosePairs, isMirrorCodeAbab, middleTriple } from "./combos";
+import { aabbTier, isLoosePairs, isMirrorCodeAbab, isPlainTripleEnd, middleTriple } from "./combos";
 import { matchMask } from "./mask";
 import type { CustomPattern, PhoneNumber, PriceRule, ResolvedPrice, Settings } from "./types";
 
@@ -204,6 +204,7 @@ export function comboPrice(id: string): [number, number] | null {
   if (t === "plain") return [1200, 1200];
   if (t === "linked") return [4000, 7000];
   if (isLoosePairs(id)) return [1500, 2000];
+  if (isPlainTripleEnd(id)) return [1000, 1000];
   return null;
 }
 

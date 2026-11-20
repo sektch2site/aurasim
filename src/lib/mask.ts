@@ -50,6 +50,39 @@ export function matchMask(id: string, rawMask: string): boolean {
   return true;
 }
 
+/**
+ * «Границы» маски: звёздочка рядом с узором не должна его продолжать.
+ * ****ABABAB не должна находить 965 1 818181 (это ***ABABABA), *****AAAA* — 900 777777 0.
+ * Пары позиций (с 1) «i:j» — цифры на этих местах должны различаться.
+ */
+export function maskBoundary(rawMask: string): string[] {
+  const mask = normalizeMask(rawMask);
+  const isLetter = (k: number) => k >= 0 && k < 10 && /[A-Z]/.test(mask[k]);
+  const isFixed = (k: number) => k >= 0 && k < 10 && mask[k] !== "*";
+  const out = new Set<string>();
+  for (let i = 0; i < 10; i++) {
+    if (mask[i] !== "*") continue;
+    for (const dir of [1, -1]) {
+      const j = i + dir;
+      if (!isLetter(j)) continue;
+      out.add(`${i + 1}:${j + 1}`); // повтор: AAAA → AAAAA, ABAB → BABAB… (553 53 53)
+      const k = i + 2 * dir;
+      if (isFixed(k)) out.add(`${i + 1}:${k + 1}`); // чередование: ABABAB → BABABAB (1 81 81 81)
+    }
+  }
+  return [...out];
+}
+
+/** Точное совпадение с маской: узор совпал и не продолжается на звёздочки */
+export function matchMaskStrict(id: string, rawMask: string): boolean {
+  if (!matchMask(id, rawMask)) return false;
+  for (const p of maskBoundary(rawMask)) {
+    const [a, b] = p.split(":").map((x) => Number(x) - 1);
+    if (id[a] === id[b]) return false;
+  }
+  return true;
+}
+
 /** Регулярка для Postgres (~) с обратными ссылками. Различие букв проверяется уже в JS. */
 export function maskToPgRegex(rawMask: string): string {
   const mask = normalizeMask(rawMask);

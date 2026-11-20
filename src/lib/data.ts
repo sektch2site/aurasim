@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { analyzeBeauty } from "./beauty";
-import { digitsToLike, maskConstraints, matchLike, matchMask, normalizeMask, TAGGED_MASKS } from "./mask";
+import { digitsToLike, maskBoundary, maskConstraints, matchLike, matchMaskStrict, normalizeMask, TAGGED_MASKS } from "./mask";
 import { MOCK_BUNDLES, MOCK_FEATURED, MOCK_RULES, MOCK_TARIFFS, mockNumbers } from "./mock";
 import { customPatternFor, findRule, isVipPattern, endingUnrelated, priceSortValue, resolvePrice } from "./pricing";
 import { hasSupabase } from "./supabase/env";
@@ -165,7 +165,7 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   if (!hasSupabase) {
     let list = mockNumbers().filter((n) => n.is_active);
     if (like) list = list.filter((n) => matchLike(n.id, like));
-    if (q.mask) list = list.filter((n) => matchMask(n.id, q.mask!));
+    if (q.mask) list = list.filter((n) => matchMaskStrict(n.id, q.mask!));
     if (free) list = list.filter((n) => n.id.includes(free.slice(-10)));
     if (q.operators?.length) list = list.filter((n) => q.operators!.includes(n.operator));
     if (q.tariffMin != null) list = list.filter((n) => (n.tariff_price ?? -1) >= q.tariffMin!);
@@ -195,10 +195,12 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
 
   // своя маска (не из тегированных) — условиями на позиции, без медленных регулярок
   const mc = q.mask && !TAGGED_MASKS.includes(normalizeMask(q.mask)) ? maskConstraints(q.mask) : null;
+  // узор не должен продолжаться на звёздочки: ****ABABAB ≠ 965 1 818181, *****AAAA* ≠ 900 777777 0
+  const neq = [...(mc?.neq ?? []), ...(q.mask ? maskBoundary(q.mask) : [])];
   const base = {
     p_like: mc ? (mc.like ?? like) : like,
     p_eq: mc?.eq.length ? mc.eq : null,
-    p_neq: mc?.neq.length ? mc.neq : null,
+    p_neq: neq.length ? neq : null,
     p_regex: null as string | null,
     p_mask_tag: q.mask && TAGGED_MASKS.includes(normalizeMask(q.mask)) ? normalizeMask(q.mask) : null,
     p_q: free ?? null,
@@ -221,8 +223,10 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
     if (error) throw new Error(error.message);
     const rows = (data as { row_data: PhoneNumber; total: number }[]) ?? [];
     let items = rows.map((r) => enrich(r.row_data, rules, settings));
-    // разные буквы маски = разные цифры (в SQL не проверяется)
-    if (q.mask) items = items.filter((i) => matchMask(i.id, q.mask!));
+    // разные буквы маски = разные цифры, узор не продолжается на звёздочки
+    if (q.mask) items = items.filter((i) => matchMaskStrict(i.id, q.mask!));
+    // фильтр цены — по той цене, что видит покупатель (в базе она могла устареть до пересчёта)
+    if (q.withPrice || q.priceMin != null || q.priceMax != null) items = items.filter((i) => inPriceRange(i, q));
     return { items, total: rows.length ? Number(rows[0].total) : -1 };
   };
 
@@ -263,6 +267,13 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   return { items, total: totals[0] + totals[1] + totals[2] + totals[3], page, pageSize };
 }
 
+function inPriceRange(i: CatalogItem, q: CatalogQuery): boolean {
+  if (i.price.kind !== "fixed") return false;
+  if (q.priceMin != null && i.price.price < q.priceMin) return false;
+  if (q.priceMax != null && i.price.price > q.priceMax) return false;
+  return true;
+}
+
 const MIX_SPLIT = 30000;
 /** номера дешевле — в самом конце выдачи (кроме поиска по цене) */
 const LOW_PRICE = 5000;
@@ -273,7 +284,7 @@ function customHighlight(id: string, settings: Settings): string | null {
 }
 
 /** Сегодняшняя дата по Москве — ключ ежедневной подборки */
-function moscowDay(): string {
+export function moscowDay(): string {
   return new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
 }
 
@@ -330,6 +341,21 @@ async function recommendedPage(page: number, pageSize: number, day: string, mode
   "use cache";
   cacheLife("hours");
   cacheTag(CATALOG_TAG);
+  // подборка дня заранее собрана ночью (cron/feed) — берём готовые номера, это быстро
+  const settings = await getSettings();
+  const feed = settings.feed;
+  if (mode === "mix" && feed?.day === day && feed.ids.length >= page * pageSize) {
+    const ids = feed.ids.slice((page - 1) * pageSize, page * pageSize);
+    const [rules, { data }] = await Promise.all([getRules(), publicClient().from("numbers").select("*").in("id", ids).eq("is_active", true)]);
+    const byId = new Map(((data as PhoneNumber[]) ?? []).map((n) => [n.id, n]));
+    const items = ids.flatMap((id) => (byId.has(id) ? [enrich(byId.get(id)!, rules, settings)] : []));
+    return { items, total: feed.total, page, pageSize };
+  }
+  return computeRecommended(page, pageSize, day, mode);
+}
+
+/** Сборка «Рекомендуем»/«Новые» с нуля (тяжёлая: ~20 с). Ночью её делает cron/feed на 300 номеров вперёд */
+export async function computeRecommended(page: number, pageSize: number, day: string, mode: "mix" | "new" = "mix"): Promise<CatalogResult> {
   const [rules, settings] = await Promise.all([getRules(), getSettings()]);
   const need: Record<FeedSrc, number> = { special: 0, mid: 0, high: 0, low: 0, exp: 0, req: 0, aaaa: 0 };
   for (let i = 0; i < pageSize; i++) need[FEED_CYCLE[i % FEED_CYCLE.length]]++;

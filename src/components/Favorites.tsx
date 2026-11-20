@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
 
 const KEY = "aura:favorites";
 
@@ -52,6 +52,25 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     write(prev.includes(id) ? prev.filter((x) => x !== id) : [id, ...prev]);
   }, []);
   const has = useCallback((id: string) => ids.includes(id), [ids]);
+  // номер продали или он ушёл в бронь — убираем из избранного, чтобы не висел в счётчике
+  const key = ids.join(",");
+  useEffect(() => {
+    if (!key) return;
+    let alive = true;
+    fetch(`/api/numbers?ids=${key}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: { id: string }[] } | null) => {
+        if (!alive || !Array.isArray(d?.items)) return;
+        const live = new Set(d.items.map((i) => i.id));
+        const cur = read();
+        const next = cur.filter((id) => live.has(id) || !key.split(",").includes(id));
+        if (next.length !== cur.length) write(next);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [key]);
   return <Ctx.Provider value={{ ids, has, toggle, ready }}>{children}</Ctx.Provider>;
 }
 
