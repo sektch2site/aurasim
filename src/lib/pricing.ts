@@ -88,8 +88,12 @@ export function buyoutPrice(n: Pick<PhoneNumber, "id" | "operator" | "partner_pr
 }
 
 export const PATTERN_PRICES: { name: string; example: string; from: number; to: number; test: (b: string) => boolean }[] = [
-  // ***ABABAB X — приоритет Ильи
-  { name: "***ABABAB X", example: "915 56 56 56 0", from: 10000, to: 25000, test: (b) => /^(\d)(\d)\1\2\1\2\d$/.test(b) && b[0] !== b[1] },
+  // ***ABABAB0 — X = 0, и 0 не входит в AB (915 56 56 56 0) — Илья, 24.11
+  { name: "***ABABAB0", example: "915 56 56 56 0", from: 7000, to: 9000, test: (b) => /^([1-9])([1-9])\1\2\1\2[0]$/.test(b) && b[0] !== b[1] },
+  // ***ABABAB X — X «левая» цифра, не A и не B (903 27 27 27 6) — Илья, 24.11
+  { name: "***ABABAB X (левая X)", example: "903 27 27 27 6", from: 3000, to: 5000, test: (b) => /^(\d)(\d)\1\2\1\2\d$/.test(b) && b[0] !== b[1] && b[6] !== b[0] && b[6] !== b[1] },
+  // ***ABABAB X, где X совпадает с A или B (915 56 56 56 5) — как было
+  { name: "***ABABAB X", example: "915 56 56 56 5", from: 10000, to: 25000, test: (b) => /^(\d)(\d)\1\2\1\2\d$/.test(b) && b[0] !== b[1] },
   // ****A0AAAA — 916 370 77 77 (код + любая цифра, затем A0AAAA)
   { name: "****A0AAAA", example: "916 370 77 77", from: 35000, to: 40000, test: (b) => /^\d([1-9])0\1\1\1\1$/.test(b) },
   // ***AAA + зеркальное окончание — 969 111 39 93, 994 111 08 80

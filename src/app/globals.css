@@ -21,8 +21,15 @@
   --color-fire: #ff5a1f;
 }
 
+/* сайт всегда светлый: в тёмной теме браузера/Telegram и при «принудительно тёмном» режиме
+   без явного цвета фон становился чёрным, а тёмный текст на нём не виден («чёрный экран») */
+:root {
+  color-scheme: only light;
+}
+
 html {
   scroll-behavior: smooth;
+  background-color: #eef4ff;
 }
 
 body {
@@ -30,7 +37,7 @@ body {
     radial-gradient(1200px 600px at 100% -10%, rgba(120, 190, 255, 0.45), transparent 60%),
     radial-gradient(900px 500px at -10% 30%, rgba(160, 205, 255, 0.35), transparent 60%),
     linear-gradient(180deg, #f2f7ff 0%, #eaf2ff 100%);
-  background-attachment: fixed;
+  background-color: #eef4ff;
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -231,5 +238,12 @@ button:disabled {
   50% {
     transform: scale(0.92);
     opacity: 0.85;
+  }
+}
+
+/* «прилипающий» фон только на компьютерах: на части телефонов background-attachment: fixed рисует чёрный экран */
+@media (hover: hover) and (pointer: fine) {
+  body {
+    background-attachment: fixed;
   }
 }

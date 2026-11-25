@@ -20,13 +20,13 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = { themeColor: "#1a44e8" };
+export const viewport: Viewport = { themeColor: "#1a44e8", colorScheme: "only light" };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const settings = await getSettings();
   const tg = settings.telegram.replace(/^@/, "");
   return (
-    <html lang="ru" className="h-full">
+    <html lang="ru" className="h-full" style={{ backgroundColor: "#eef4ff", colorScheme: "only light" }}>
       <body className="flex min-h-full flex-col">
         <div id="aura-loader" aria-hidden="true" suppressHydrationWarning>
           <div className="flex flex-col items-center gap-3">

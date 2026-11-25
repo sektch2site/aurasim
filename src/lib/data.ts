@@ -234,8 +234,8 @@ export async function searchCatalog(q: CatalogQuery): Promise<CatalogResult> {
   const offset = (page - 1) * pageSize;
   // своя маска (регулярка) тяжёлая — без смешанной выдачи, одним запросом
   const plain = !like && !free && !q.mask && !q.operators?.length && q.tariffMin == null && q.tariffMax == null && !q.region && !q.withPrice && !q.discount && q.priceMin == null && q.priceMax == null;
-  // любой поиск с условиями — одним запросом по красоте (дешёвые всё равно в конце); смешанная выдача только для «Рекомендуем»
-  if (sort === "mix" && !plain) sort = "beauty";
+  // своя буквенная маска — тяжёлая, одним запросом; остальной поиск — вперемешку (номера с ценой в приоритете)
+  if (sort === "mix" && mc) sort = "beauty";
   // «Рекомендуем» без фильтров — разнообразная подборка, меняется каждый день
   if ((sort === "mix" || sort === "new") && plain) return recommendedPage(page, pageSize, moscowDay(), sort);
   if (sort !== "mix") {
@@ -453,10 +453,16 @@ function planMix(offset: number, size: number, totA: number, totB: number, totC 
   const out: ["A" | "B" | "C" | "D", number][] = [];
   const used = { A: 0, B: 0, C: 0, D: 0 };
   const tot = { A: totA, B: totB, C: totC, D: totD };
+  let exp = 0;
   for (let i = 0; i < offset + size; i++) {
-    // приоритет недорогим: первые 5 — недорогие, дальше 3 недорогих на 1 дорогой
-    const want: "A" | "B" = i < 5 ? "A" : (i - 5) % 4 < 3 ? "A" : "B";
-    const order: ("A" | "B" | "C" | "D")[] = want === "A" ? ["A", "B", "C", "D"] : ["B", "A", "C", "D"];
+    // в приоритете номера с ценой (A), каждый 6-й — дорогой (B) или «по запросу» (C) по очереди;
+    // дешёвые до 5 000 (D) — после всех с обычной ценой
+    const expensiveSlot = i % 6 === 5;
+    const order: ("A" | "B" | "C" | "D")[] = expensiveSlot
+      ? exp++ % 2 === 0
+        ? ["B", "C", "A", "D"]
+        : ["C", "B", "A", "D"]
+      : ["A", "D", "B", "C"];
     const pick = order.find((k) => used[k] < tot[k]);
     if (!pick) break;
     if (i >= offset) out.push([pick, used[pick]]);
